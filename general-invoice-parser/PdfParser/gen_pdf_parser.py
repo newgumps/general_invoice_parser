@@ -134,7 +134,7 @@ def text_tract_parser(payload):
     df['invoice_date'] = pd.to_datetime(df['invoice_date'])
     df['invoice_date'] = df.invoice_date.astype('int64')
 
-    
+     df['date'] = pd.to_datetime(int(df['invoice_date']), utc=True).date().strftime('%Y-%m-%d')
 
     #DOES: add s3 link to original
     df['original_s3_links'] = 'https://' + s3BucketName +'.s3.amazonaws.com'+'/' + payload['KEY']
