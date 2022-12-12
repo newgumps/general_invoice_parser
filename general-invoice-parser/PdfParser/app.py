@@ -28,13 +28,17 @@ def lambda_handler(event, context):
     #DOES: save s3 location with new file handle
     df['file_handel_s3_location'] = json.dumps({
         "KEY":file_handle_name_files + '.pdf' ,
-        "BUCKET":PDF_FILE_HANDLE_BUCKET   
+        "BUCKET":PDF_FILE_HANDLE_BUCKET ,
+        "S3_URL": "https://s3.amazonaws.com/" + PDF_FILE_HANDLE_BUCKET + "/" + file_handle_name_files + ".pdf"
         })
+    
     #DOES: SAVE TO S3 (renamed)=
     df.to_csv('/tmp/' + file_handle_name_files + '.csv', index=False)
     s3_client.meta.client.upload_file('/tmp/' + file_handle_name_files + '.csv', PROCESSED_CSV_FILE_HANDLE_BUCKET, file_handle_name_files + '.csv')
 
     #DOES: SAVE TO DYNAMODB
     pandas_to_dynamodb(df, 'general-invoice-data')
+
+    #TODO: GENERATE SNS MESSAGE to upload CSV
     return event
     

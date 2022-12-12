@@ -95,6 +95,7 @@ def lambda_handler(event, context):
             print("Following Content-type found:",payload.get_content_type())
             print('Attachments with the filename:',payload.get_filename(), 'detected!')
             file_name = payload.get_filename()
+            file_name = file_name.replace(" ", "_")
             file_bytes = payload.get_payload()
             content_type = payload.get_content_type()
 

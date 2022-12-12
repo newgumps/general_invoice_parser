@@ -3,7 +3,7 @@ import boto3
 import json
 import awswrangler as wr
 from decimal import Decimal
-
+import urllib
 
 list_of_fields = [
     'INVOICE_RECEIPT_ID',
@@ -134,7 +134,7 @@ def text_tract_parser(payload):
     df['invoice_date'] = pd.to_datetime(df['invoice_date'])
     df['invoice_date'] = df.invoice_date.astype('int64')
 
-     df['date'] = pd.to_datetime(int(df['invoice_date']), utc=True).date().strftime('%Y-%m-%d')
+    df['date'] = pd.to_datetime(int(df['invoice_date']), utc=True).date().strftime('%Y-%m-%d')
 
     #DOES: add s3 link to original
     df['original_s3_links'] = 'https://' + s3BucketName +'.s3.amazonaws.com'+'/' + payload['KEY']
@@ -146,9 +146,11 @@ def text_tract_parser(payload):
         })
     #DOES: add file_handle 
     # file_handle VENDOR_NAME/INV_DATE_INV_NUM_PO_NUM
-    df['file_handle_pdf_s3'] = df['vendor'] + '/' + df['invoice_date'].astype(str) + '_' + df['invoice_num'] + '_' + df['po_number']
+    df['file_handle_pdf_s3'] = urllib.parse.quote_plus((df['vendor'] + '/' + df['invoice_date'].astype(str) + '_' + df['invoice_num'] + '_' + df['po_number'])[0])
     file_handle_name_s3 = df['file_handle_pdf_s3'].iloc[0]
+    print('file_handle_name_s3:', file_handle_name_s3)
     file_handle_name_files = file_handle_name_s3.replace('/','_')
+    print('file_handle_name_files:', file_handle_name_files)
     df['file_handle_pdf_filename'] = file_handle_name_s3
 
     return df
