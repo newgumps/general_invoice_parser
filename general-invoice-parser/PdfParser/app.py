@@ -23,9 +23,9 @@ def lambda_handler(event, context):
     copy_source = {'Bucket': BUCKET_NAME, 'Key': OBJECT_KEY}
     # Incase we want to save the file handle in a different bucket
     # s3_file_handle_bucket = 'file-handle-bucket'
-s3_client.meta.client.copy(CopySource = copy_source, Bucket = PDF_FILE_HANDLE_BUCKET, Key = file_handle_name_files + '.pdf')
+    s3_client.meta.client.copy(CopySource = copy_source, Bucket = PDF_FILE_HANDLE_BUCKET, Key = file_handle_name_files + '.pdf')
 
-#DOES: save s3 location with new file handle
+    #DOES: save s3 location with new file handle
     df['file_handel_s3_location'] = json.dumps({
         "KEY":file_handle_name_files + '.pdf' ,
         "BUCKET":PDF_FILE_HANDLE_BUCKET ,
