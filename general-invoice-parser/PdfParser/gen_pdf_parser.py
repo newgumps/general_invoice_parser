@@ -146,8 +146,8 @@ def text_tract_parser(payload):
         })
     #DOES: add file_handle 
     # file_handle VENDOR_NAME/INV_DATE_INV_NUM_PO_NUM
-    df['file_handle_pdf_s3'] = urllib.parse.quote_plus((df['vendor'] + '/' + df['invoice_date'].astype(str) + '_' + df['invoice_num'] + '_' + df['po_number'])[0])
-    file_handle_name_s3 = df['file_handle_pdf_s3'].iloc[0]
+    df['file_handle_pdf_s3'] = urllib.parse.quote_plus((df['vendor'] + '/' + df['date'].astype(str) + '_' + df['invoice_num'] + '_' + df['po_number'])[0])
+    file_handle_name_s3 = df['file_handle_pdf_s3'].iloc[0].replace('%2F','/')
     print('file_handle_name_s3:', file_handle_name_s3)
     file_handle_name_files = file_handle_name_s3.replace('/','_')
     print('file_handle_name_files:', file_handle_name_files)
