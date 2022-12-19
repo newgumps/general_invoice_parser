@@ -41,6 +41,9 @@ Resources:
   ReceivedEmailStorage:
     Type: 'AWS::S3::Bucket'
 
+  AttachmentsStorage:
+    Type: 'AWS::S3::Bucket'
+
   SavedInS3Notification:
     Type: 'AWS::SNS::Topic'
 
