@@ -52,7 +52,7 @@ def lambda_handler(event, context):
         Namespace='Gumps AP Inbox',
         MetricData = [
             {
-                'MetricName': 'Emails Recieved',
+                'MetricName': 'Emails Received',
                 'Dimensions': [
                     {
                         "Name": 'Sender',
@@ -68,8 +68,15 @@ def lambda_handler(event, context):
 
 
     email_query = f"""  
-        mutation MyMutation($Sender: AWSEmail = "{email_from[1]}", $inbox_date: AWSDate = "{inbox_date}", $object_ref: AWSJSON = {json.dumps(object_ref)}, $process_datetime: AWSDateTime = "{datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')}") {{
-        createEmail(input: {{Sender: $Sender, inbox_date: $inbox_date, object_ref: $object_ref, process_datetime: $process_datetime}}) {{
+        mutation MyMutation($Sender: AWSEmail = "{email_from[1]}",
+                            $inbox_date: AWSDate = "{inbox_date}", 
+                            $object_ref: AWSJSON = {json.dumps(object_ref)},
+                            $process_datetime: AWSDateTime = "{datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')}") {{
+        createEmail(input: {{
+                            Sender: $Sender,
+                            inbox_date: $inbox_date, 
+                            object_ref: $object_ref, 
+                            process_datetime: $process_datetime}}) {{
             id
         }}
         }}

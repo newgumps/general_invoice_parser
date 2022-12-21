@@ -31,6 +31,7 @@ Parameters:
   PreProcessingBucket:
     Type: String
     Default: preprocessing-bucket-to-be-parsed
+
   AttachmentsDDBStreams:
     Type: String
     Default: arn:aws:dynamodb:us-east-1:570685116845:table/Attachment-iumxb4tvivfkpokn5l7ot2wd64-staging/stream/2022-12-14T17:42:52.072
@@ -150,10 +151,10 @@ Resources:
             BucketName: !Ref SavedPdfPreProcessing
         - SNSCrudPolicy:
             TopicName: !GetAtt SavedInS3Notification.TopicName
-        - SNSCrudPolicy:
-            TopicName: !GetAtt ErrorNotificationSNS.TopicName
         - S3CrudPolicy:
             BucketName: !Ref ReceivedEmailStorage
+        - SNSCrudPolicy:
+            TopicName: !GetAtt ErrorNotificationSNS.TopicName
         - DynamoDBWritePolicy:
             TableName: !Ref GumpsLoggingDDB
         - SQSSendMessagePolicy:
@@ -371,6 +372,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Policies: 
+        - SNSCrudPolicy:
+            TopicName: !GetAtt SavedInS3Notification.TopicName
         - S3CrudPolicy:
             BucketName: !Ref ReceivedEmailStorage
         - S3CrudPolicy:
@@ -413,28 +416,64 @@ Resources:
       PackageType: Image
       Architectures:
         - arm64
+      Events:
+        SNSEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref SavedInS3Notification
     Metadata:
       Dockerfile: Dockerfile
       DockerContext: ./extract_pdf_attachments
       DockerTag: python3.8-v1
   
+  PDFPagesStorage:
+    Type: 'AWS::S3::Bucket'
+    
   SplitPdfFunction:
     Type: AWS::Serverless::Function
     Properties:
       Policies: 
         - AWSLambdaDynamoDBExecutionRole
+        - S3CrudPolicy:
+            BucketName: !Ref AttachmentsStorage
+        - S3CrudPolicy:
+            BucketName: !Ref PDFPagesStorage
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ProcessWithTextractFunction
       Timeout: 30
       Events:
         Stream:
           Type: DynamoDB
           Properties:
             Stream: !Ref AttachmentsDDBStreams
-            BatchSize: 100
-            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
+            StartingPosition: LATEST
+            FilterCriteria:
+              Filters:
+                - Pattern: '{ "dynamodb": { "NewImage": { "type": { "S": ["application/pdf"] } } } }'
       PackageType: Image
       Architectures:
         - arm64
     Metadata:
       Dockerfile: Dockerfile
       DockerContext: ./split_pdf
+      DockerTag: python3.8-v1
+
+  SavePdfPagesTopic:
+    Type: AWS::SNS::Topic
+  ProcessWithTextractFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+
+      Policies: 
+        - S3CrudPolicy:
+            BucketName: !Ref PDFPagesStorage
+        - SNSCrudPolicy:
+            TopicName: !GetAtt  SavePdfPagesTopic.TopicName
+      PackageType: Image
+      Architectures:
+        - arm64
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: ./process_with_textract
       DockerTag: python3.8-v1
