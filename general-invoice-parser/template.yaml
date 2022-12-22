@@ -37,10 +37,6 @@ Parameters:
     Default: arn:aws:dynamodb:us-east-1:570685116845:table/Attachment-iumxb4tvivfkpokn5l7ot2wd64-staging/stream/2022-12-14T17:42:52.072
 
 Resources:
-  InvoiceParserStackLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: GeneralCsvParserLog
 
   ReceivedEmailStorage:
     Type: 'AWS::S3::Bucket'
@@ -116,15 +112,11 @@ Resources:
     Properties:
       DisplayName: 'Gumps Dropship PDF Success'
 
-  SavedPdfPreProcessing:
-    Type: 'AWS::S3::Bucket'
-    Properties:
-      BucketName: !Ref PreProcessingBucket
 
-  PdfFileHandel:
+  PdfFileHandle:
     Type: 'AWS::S3::Bucket'
 
-  ProcessedCSVFileHandel:
+  ProcessedCSVFileHandle:
     Type: 'AWS::S3::Bucket'
 
   ExtractAttachmentsFromEmail:
@@ -140,23 +132,19 @@ Resources:
           SAVE_PDF_PREFIX: !Ref PDFPrefix
           ERROR_NOTIFICATION_ARN: !Ref ErrorNotificationSNS
           CSV_SQS_QUEUE: !Ref PDFSplitQueueSQS
-          PREPROCESSING_BUCKET: !Ref PreProcessingBucket
       Events:
         SNSEvent:
           Type: SNS
           Properties:
             Topic: !Ref SavedInS3Notification
       Policies: 
-        - S3CrudPolicy:
-            BucketName: !Ref SavedPdfPreProcessing
+
         - SNSCrudPolicy:
             TopicName: !GetAtt SavedInS3Notification.TopicName
         - S3CrudPolicy:
             BucketName: !Ref ReceivedEmailStorage
         - SNSCrudPolicy:
             TopicName: !GetAtt ErrorNotificationSNS.TopicName
-        - DynamoDBWritePolicy:
-            TableName: !Ref GumpsLoggingDDB
         - SQSSendMessagePolicy:
             QueueName: !GetAtt PDFSplitQueueSQS.QueueName
       EventInvokeConfig:
@@ -204,19 +192,7 @@ Resources:
       PackageType: Image
       Architectures:
         - "arm64"
-      Events:
-        S3Events:
-          Type: S3
-          Properties:
-            Bucket: !Ref SavedPdfPreProcessing
-            Events: s3:ObjectCreated:*
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: pre-processing-bucket/
-                  - Name: suffix
-                    Value: .pdf
+
       Policies:
         - {
         
@@ -241,9 +217,9 @@ Resources:
         - S3CrudPolicy:
             BucketName: !Ref PreProcessingBucket
         - S3CrudPolicy:
-            BucketName: !Ref PdfFileHandel
+            BucketName: !Ref PdfFileHandle
         - S3CrudPolicy:
-            BucketName: !Ref ProcessedCSVFileHandel
+            BucketName: !Ref ProcessedCSVFileHandle
         - SQSSendMessagePolicy:
             QueueName: !GetAtt CSVCompileQueue.QueueName
         - SNSPublishMessagePolicy:
@@ -267,8 +243,8 @@ Resources:
 
       Environment:
         Variables:
-          PDF_FILE_HANDLE_BUCKET: !Ref PdfFileHandel
-          PROCESSED_CSV_FILE_HANDLE_BUCKET: !Ref ProcessedCSVFileHandel
+          PDF_FILE_HANDLE_BUCKET: !Ref PdfFileHandle
+          PROCESSED_CSV_FILE_HANDLE_BUCKET: !Ref ProcessedCSVFileHandle
           NSSecrets: !Ref NSSecrets
           BUCKET_NAME_ERRORS: !Ref ErrorStorageBucket
           CSV_SQS_QUEUE: !Ref CSVCompileQueue
@@ -328,45 +304,6 @@ Resources:
       Dockerfile: Dockerfile
       DockerContext: ./CsvCompiler
       DockerTag: python3.8-v1
-
-  GumpsDocumentsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: GumpsDocuments
-      AttributeDefinitions:
-        # The primary key of a DynamoDB table is a combination of a partition key and a sort key.
-        - AttributeName: vendors
-          AttributeType: S
-        - AttributeName: invoice_number
-          AttributeType: S
-        - AttributeName: invoice_date
-          AttributeType: S
-        - AttributeName: po_number
-          AttributeType: S
-
-
-      KeySchema:
-        - AttributeName: vendors
-          KeyType: HASH
-        - AttributeName: invoice_number
-          KeyType: RANGE
-
-      GlobalSecondaryIndexes:
-        -
-          IndexName: po-index
-          KeySchema:
-            - AttributeName: po_number
-              KeyType: HASH
-            - AttributeName: invoice_date
-              KeyType: RANGE
-          Projection:
-            ProjectionType: INCLUDE
-            NonKeyAttributes:
-              - s3_link
-
-      BillingMode: PAY_PER_REQUEST
-      SSESpecification:
-        SSEEnabled: true
   
   EmailParsingFunction:
     Type: AWS::Serverless::Function
@@ -432,8 +369,13 @@ Resources:
   SplitPdfFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Environment:
+        Variables:
+          TOPIC_ARN: !Ref SavePdfPagesTopic
       Policies: 
         - AWSLambdaDynamoDBExecutionRole
+        - SNSCrudPolicy:
+            TopicName: !GetAtt  SavePdfPagesTopic.TopicName
         - S3CrudPolicy:
             BucketName: !Ref AttachmentsStorage
         - S3CrudPolicy:
@@ -464,7 +406,9 @@ Resources:
   ProcessWithTextractFunction:
     Type: AWS::Serverless::Function
     Properties:
-
+      Environment:
+        Variables:
+          TOPIC_ARN: !Ref SavePdfPagesTopic
       Policies: 
         - S3CrudPolicy:
             BucketName: !Ref PDFPagesStorage

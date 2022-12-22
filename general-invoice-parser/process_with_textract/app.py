@@ -22,7 +22,11 @@ def lambda_handler(event, context):
 
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
-
+    print(event)
+    # Parse bucketname and key from event
+    # feed bucketname and key to textract
+    # save textract output to dynamodb
+    # write to t
     return {
         "statusCode": 200,
         "body": json.dumps(
