@@ -69,6 +69,7 @@ CSV_SQS_QUEUE = os.environ['CSV_SQS_QUEUE']
 
 def lambda_handler(event, context):
     print(event)
+    """
     records = event['Records'][0] 
     res = json.loads(records['Sns']['Message'])
     EMAIL_OBJ_KEY = res['receipt']['action']['objectKey']
@@ -116,7 +117,7 @@ def lambda_handler(event, context):
                     # loggings('EmailToPdf', 'File Uploaded to S3', OBJECT_KEY)
                 loggings('GENERALINVOICEPARSER_EMAILTOPDF', 'SUCCESS_FILE_UPLOADED', "File Uploaded to S3: " + OBJECT_KEY)
                 print(f"{file} is uploaded to S3 bucket {PREPROCESSING_BUCKET} with key {OBJECT_KEY}")
-
+    """
     return None
     
 

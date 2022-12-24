@@ -2,10 +2,13 @@ import json
 import boto3
 import botocore
 from PyPDF2 import PdfFileReader, PdfFileWriter
+import os
+
 def publish_message(topic_arn, message, subject):
     """
     Publishes a message to a topic.
     """
+    sns_client = boto3.client('sns')
     try:
 
         response = sns_client.publish(
@@ -103,6 +106,7 @@ def lambda_handler(event, context):
     for file in list_of_file_name:
         # Naming convention for the file to be uploaded to S3
         OBJECT_KEY = file.lstrip('/tmp/')
+        s3 = boto3.client('s3')
         s3.upload_file(file, BUCKET_NAME, 
             OBJECT_KEY,
             ExtraArgs={'ContentType': 'application/pdf'}
@@ -111,6 +115,7 @@ def lambda_handler(event, context):
         publish_message(TOPIC_ARN, 
                         subject="SavePdfPages", 
                         message=json.dumps({
+                            "ATTACHMENT_ID": event['Records'][0]['dynamodb']['NewImage']['id']['S'],
                             "BUCKET_NAME": BUCKET_NAME,
                             "KEY": OBJECT_KEY
                         }))        

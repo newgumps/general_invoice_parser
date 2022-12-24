@@ -1,4 +1,20 @@
 import json
+accessToken = "da2-kdsrvisnq5g63iahdh44elttay"
+endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
+
+def query_graphql_ap_inbox_db(accessToken, endpoint, query):
+    # establish a session with requests session
+    session = requests.Session()
+    # As found in AWS Appsync under Settings for your endpoint.
+    APPSYNC_API_ENDPOINT_URL = endpoint
+    # Now we can simply post the request...
+    response = session.request(
+        url=APPSYNC_API_ENDPOINT_URL,
+        method='POST',
+        headers={'x-api-key': accessToken},
+        json={'query': query}
+    )
+    return response.json()
 
 
 def lambda_handler(event, context):
@@ -22,11 +38,35 @@ def lambda_handler(event, context):
 
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
-    print(event)
     # Parse bucketname and key from event
     # feed bucketname and key to textract
     # save textract output to dynamodb
     # write to t
+    print(event)
+    obj_ref = json.loads(event['Records'][0]['Sns']['Message'])
+    BUCKET_NAME = obj_ref['BUCKET_NAME']
+    OBJECT_KEY = obj_ref['KEY']
+    ATTACHMENT_ID = obj_ref['ATTACHMENT_ID']
+
+    textractmodule = boto3.client('textract')
+    textract_response = textractmodule.analyze_expense(
+            Document={
+                'S3Object': {
+                    'Bucket': BUCKET_NAME,
+                    'Name': OBJECT_KEY
+                    }})
+
+
+    query = f"""
+    mutation MyMutation($obj_ref: String = {json.dumps(json.dumps(obj_ref))}, 
+                        $textract_result: String = {json.dumps(json.dumps(textract_response))}, $attachmentID: ID = "{ATTACHMENT_ID}") {{
+    createPage(input: {{obj_ref: $obj_ref, textract_result: $textract_result, attachmentID: $attachmentID}}) {{
+                id
+            }}
+    }}
+        """
+
+    response = query_graphql_ap_inbox_db(accessToken, endpoint, query)
     return {
         "statusCode": 200,
         "body": json.dumps(

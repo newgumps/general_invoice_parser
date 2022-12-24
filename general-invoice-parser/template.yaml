@@ -406,10 +406,16 @@ Resources:
   ProcessWithTextractFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Events:
+        SNSEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref SavePdfPagesTopic
       Environment:
         Variables:
           TOPIC_ARN: !Ref SavePdfPagesTopic
       Policies: 
+        - TextractPolicy: {}
         - S3CrudPolicy:
             BucketName: !Ref PDFPagesStorage
         - SNSCrudPolicy:
