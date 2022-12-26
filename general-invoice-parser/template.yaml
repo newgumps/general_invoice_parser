@@ -372,6 +372,7 @@ Resources:
       Environment:
         Variables:
           TOPIC_ARN: !Ref SavePdfPagesTopic
+          PDF_PAGES_BUCKET: !Ref PDFPagesStorage
       Policies: 
         - AWSLambdaDynamoDBExecutionRole
         - SNSCrudPolicy:
@@ -406,6 +407,7 @@ Resources:
   ProcessWithTextractFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Timeout: 15
       Events:
         SNSEvent:
           Type: SNS
@@ -416,6 +418,7 @@ Resources:
           TOPIC_ARN: !Ref SavePdfPagesTopic
       Policies: 
         - TextractPolicy: {}
+        - CloudWatchPutMetricPolicy: {}
         - S3CrudPolicy:
             BucketName: !Ref PDFPagesStorage
         - SNSCrudPolicy:

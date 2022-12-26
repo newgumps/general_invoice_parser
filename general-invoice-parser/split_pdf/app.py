@@ -103,11 +103,12 @@ def lambda_handler(event, context):
 
     list_of_file_name = separate_pdf(f'/tmp/{OBJECT_KEY}')
 
+    PDF_PAGES_BUCKET = os.environ['PDF_PAGES_BUCKET']
     for file in list_of_file_name:
         # Naming convention for the file to be uploaded to S3
         OBJECT_KEY = file.lstrip('/tmp/')
         s3 = boto3.client('s3')
-        s3.upload_file(file, BUCKET_NAME, 
+        s3.upload_file(file, PDF_PAGES_BUCKET, 
             OBJECT_KEY,
             ExtraArgs={'ContentType': 'application/pdf'}
             
@@ -116,7 +117,7 @@ def lambda_handler(event, context):
                         subject="SavePdfPages", 
                         message=json.dumps({
                             "ATTACHMENT_ID": event['Records'][0]['dynamodb']['NewImage']['id']['S'],
-                            "BUCKET_NAME": BUCKET_NAME,
+                            "BUCKET_NAME": PDF_PAGES_BUCKET,
                             "KEY": OBJECT_KEY
                         }))        
 

@@ -1,4 +1,7 @@
 import json
+import boto3
+import requests
+
 accessToken = "da2-kdsrvisnq5g63iahdh44elttay"
 endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
 
@@ -67,11 +70,26 @@ def lambda_handler(event, context):
         """
 
     response = query_graphql_ap_inbox_db(accessToken, endpoint, query)
+
+
+    cloudwatch_client = boto3.client('cloudwatch')
+
+    cloudwatch_client.put_metric_data(
+        Namespace='Gumps AP Inbox',
+        MetricData = [
+            {
+                'MetricName': 'Pages of Pdf Extracted',
+                'Unit': "None",
+                'Value': 1
+            }],
+        
+        )
+
     return {
         "statusCode": 200,
         "body": json.dumps(
             {
-                "message": "hello world",
+                "message": "success!",
             }
         ),
     }

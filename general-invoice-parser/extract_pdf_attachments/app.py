@@ -105,6 +105,24 @@ def lambda_handler(event, context):
         # Upload to S3 attachments bucket
         s3_response = s3.upload_file(temp_pdf_filename, ATTACHMENTS_BUCKET, file_name)
         attachments_ref = json.dumps({"BUCKET_NAME": ATTACHMENTS_BUCKET, "KEY": file_name})
+        # Put Metric Data for Attachments Stored
+        cloudwatch_client.put_metric_data(
+            Namespace='Gumps AP Inbox',
+            MetricData = [
+                {
+                    'MetricName': ' Attachments Stored',
+                    'Dimensions': [
+                        {
+                            "Name": 'Content Type',
+                            "Value": content_type
+
+                        },
+                        ],
+                    'Unit': "None",
+                    'Value': 1
+                }],
+            
+            )
         # Save to DB    
 
         #Generate Query String
