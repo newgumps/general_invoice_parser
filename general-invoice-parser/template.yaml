@@ -436,6 +436,11 @@ Resources:
   ExtractInvoiceFromPagesFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Policies: 
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt  CSVCompilerQueue.QueueName
+        - S3CrudPolicy:
+            BucketName: !Ref PDFPagesStorage
       Events:
         Stream:
           Type: DynamoDB
@@ -447,7 +452,40 @@ Resources:
       PackageType: Image
       Architectures:
         - arm64
+      Environment:
+        Variables:
+          SQS_QUEUE_URL: !Ref CSVCompilerQueue
     Metadata:
       Dockerfile: Dockerfile
       DockerContext: ./extract_invoice_from_pages
+      DockerTag: python3.8-v1
+
+  CSVCompilerQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CSVDeadLetterQueueSQS.Arn
+        maxReceiveCount: 3
+
+  CSVCompilerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref CSVStorage
+        - SQSReceiveMessagePolicy:
+            QueueName: !GetAtt CSVCompilerQueue.QueueName
+      PackageType: Image
+      Architectures:
+        - arm64
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt CSVCompileQueue.Arn
+            BatchSize: 45
+            MaximumBatchingWindowInSeconds: 300
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: ./csv_compile
       DockerTag: python3.8-v1
