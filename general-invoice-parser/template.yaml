@@ -466,15 +466,33 @@ Resources:
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt CSVDeadLetterQueueSQS.Arn
         maxReceiveCount: 3
-
+  CSVsStorage:
+    Type: 'AWS::S3::Bucket'
   CSVCompilerFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Timeout: 30
       Policies:
         - S3CrudPolicy:
-            BucketName: !Ref CSVStorage
-        - SQSReceiveMessagePolicy:
+            BucketName: !Ref CSVsStorage
+        - SQSPollerPolicy:
             QueueName: !GetAtt CSVCompilerQueue.QueueName
+        - {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                            "Sid": "VisualEditor0",
+                            "Effect": "Allow",
+                            "Action": [
+                                "ssm:DescribeParameters",
+                                "ssm:GetParametersByPath",
+                                "ssm:GetParameters",
+                                "ssm:GetParameter"
+                            ],
+                            "Resource": "*"
+                        }
+                    ]
+            }
       PackageType: Image
       Architectures:
         - arm64
@@ -482,9 +500,9 @@ Resources:
         SQSEvent:
           Type: SQS
           Properties:
-            Queue: !GetAtt CSVCompileQueue.Arn
-            BatchSize: 45
-            MaximumBatchingWindowInSeconds: 300
+            Queue: !GetAtt CSVCompilerQueue.Arn
+            BatchSize: 100
+            MaximumBatchingWindowInSeconds: 20
     Metadata:
       Dockerfile: Dockerfile
       DockerContext: ./csv_compile

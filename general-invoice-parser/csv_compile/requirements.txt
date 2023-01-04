@@ -1,1 +1,4 @@
 requests
+Wand==0.6.7
+zeep==4.1.0
+netsuitesdk==2.12.0

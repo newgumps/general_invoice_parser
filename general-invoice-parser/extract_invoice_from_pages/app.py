@@ -2,8 +2,20 @@ import json
 import os
 import boto3
 from dateutil.parser import parse
+import requests
 accessToken = "da2-kdsrvisnq5g63iahdh44elttay"
 endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
+
+
+
+def parse_date(date_str):
+    try:
+        return parse(date_str)
+    except ValueError:
+        return None
+def convert_to_aws_date(date):
+    return date.strftime('%Y%m%dT%H%M%SZ')
+
 
 def query_graphql_ap_inbox_db(accessToken, endpoint, query):
     # establish a session with requests session
@@ -72,6 +84,8 @@ def lambda_handler(event, context):
     PO_NUMBER = key_fields_value['PO_NUMBER']['Text']
     VENDOR_NAME = key_fields_value['VENDOR_NAME']['Text']
     INVOICE_RECEIPT_DATE = INVOICE_RECEIPT_DATE.replace('/','-')
+    INVOICE_RECEIPT_DATE = parse_date(INVOICE_RECEIPT_DATE)
+    INVOICE_RECEIPT_DATE = convert_to_aws_date(INVOICE_RECEIPT_DATE)
     VENDOR_NAME = VENDOR_NAME.replace('.','')
     rename_pdf_file_name = INVOICE_RECEIPT_DATE + "_" + INVOICE_RECEIPT_ID + "_" + (PO_NUMBER or "POMISSING")+".pdf"
 
@@ -110,6 +124,22 @@ def lambda_handler(event, context):
     }}
 
     """
+
+
+    def query_graphql_ap_inbox_db(accessToken, endpoint, query):
+        # establish a session with requests session
+        session = requests.Session()
+        # As found in AWS Appsync under Settings for your endpoint.
+        APPSYNC_API_ENDPOINT_URL = endpoint
+        # Now we can simply post the request...
+        response = session.request(
+            url=APPSYNC_API_ENDPOINT_URL,
+            method='POST',
+            headers={'x-api-key': accessToken},
+            json={'query': query}
+        )
+        return response.json()
+    response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
 
     # Create an SQS client
     sqs = boto3.client('sqs')
