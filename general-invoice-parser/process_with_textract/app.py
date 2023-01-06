@@ -50,7 +50,7 @@ def lambda_handler(event, context):
     BUCKET_NAME = obj_ref['BUCKET_NAME']
     OBJECT_KEY = obj_ref['KEY']
     ATTACHMENT_ID = obj_ref['ATTACHMENT_ID']
-
+    del obj_ref['ATTACHMENT_ID']
     textractmodule = boto3.client('textract')
     textract_response = textractmodule.analyze_expense(
             Document={
@@ -59,9 +59,9 @@ def lambda_handler(event, context):
                     'Name': OBJECT_KEY
                     }})
 
-
+    S3_URL = f"https://{BUCKET_NAME}.s3.amazonaws.com/{OBJECT_KEY}"
     query = f"""
-    mutation MyMutation($obj_ref: String = {json.dumps(json.dumps(obj_ref))}, 
+    mutation MyMutation($obj_ref: String = "{S3_URL}", 
                         $textract_result: String = {json.dumps(json.dumps(textract_response))}, $attachmentID: ID = "{ATTACHMENT_ID}") {{
     createPage(input: {{obj_ref: $obj_ref, textract_result: $textract_result, attachmentID: $attachmentID}}) {{
                 id

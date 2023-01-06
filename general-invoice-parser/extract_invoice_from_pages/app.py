@@ -2,10 +2,24 @@ import json
 import os
 import boto3
 from dateutil.parser import parse
+import datetime
 import requests
 accessToken = "da2-kdsrvisnq5g63iahdh44elttay"
 endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
 
+def query_graphql_ap_inbox_db(accessToken, endpoint, query):
+    # establish a session with requests session
+    session = requests.Session()
+    # As found in AWS Appsync under Settings for your endpoint.
+    APPSYNC_API_ENDPOINT_URL = endpoint
+    # Now we can simply post the request...
+    response = session.request(
+        url=APPSYNC_API_ENDPOINT_URL,
+        method='POST',
+        headers={'x-api-key': accessToken},
+        json={'query': query}
+    )
+    return response.json()
 
 
 def parse_date(date_str):
@@ -57,6 +71,7 @@ def lambda_handler(event, context):
     # Extract Invoice Information from pages
     document_dict_textract_extract = json.loads(event['Records'][0]['dynamodb']['NewImage']['textract_result']['S'])
     object_ref = json.loads(event['Records'][0]['dynamodb']['NewImage']['obj_ref']['S'])
+    pagesID = json.loads(event['Records'][0]['dynamodb']['NewImage']['id']['S'])
     list_of_fields = [
         'INVOICE_RECEIPT_ID',
         'INVOICE_RECEIPT_DATE',
@@ -83,6 +98,14 @@ def lambda_handler(event, context):
     INVOICE_RECEIPT_DATE = key_fields_value['INVOICE_RECEIPT_DATE']['Text']
     PO_NUMBER = key_fields_value['PO_NUMBER']['Text']
     VENDOR_NAME = key_fields_value['VENDOR_NAME']['Text']
+    print(type(INVOICE_RECEIPT_DATE))
+    if INVOICE_RECEIPT_DATE is None:
+        now = datetime.datetime.now()
+        INVOICE_RECEIPT_DATE = now.strftime("%Y-%m-%d")
+
+    if INVOICE_RECEIPT_ID is None:
+        return "missing invoice receipt id"
+
     INVOICE_RECEIPT_DATE = INVOICE_RECEIPT_DATE.replace('/','-')
     INVOICE_RECEIPT_DATE = parse_date(INVOICE_RECEIPT_DATE)
     INVOICE_RECEIPT_DATE = convert_to_aws_date(INVOICE_RECEIPT_DATE)
@@ -125,20 +148,6 @@ def lambda_handler(event, context):
 
     """
 
-
-    def query_graphql_ap_inbox_db(accessToken, endpoint, query):
-        # establish a session with requests session
-        session = requests.Session()
-        # As found in AWS Appsync under Settings for your endpoint.
-        APPSYNC_API_ENDPOINT_URL = endpoint
-        # Now we can simply post the request...
-        response = session.request(
-            url=APPSYNC_API_ENDPOINT_URL,
-            method='POST',
-            headers={'x-api-key': accessToken},
-            json={'query': query}
-        )
-        return response.json()
     response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
 
     # Create an SQS client
