@@ -70,8 +70,10 @@ def lambda_handler(event, context):
     print(event)
     # Extract Invoice Information from pages
     document_dict_textract_extract = json.loads(event['Records'][0]['dynamodb']['NewImage']['textract_result']['S'])
-    object_ref = json.loads(event['Records'][0]['dynamodb']['NewImage']['obj_ref']['S'])
-    pagesID = json.loads(event['Records'][0]['dynamodb']['NewImage']['id']['S'])
+    object_ref = event['Records'][0]['dynamodb']['NewImage']['obj_ref']['S']
+    pagesID = event['Records'][0]['dynamodb']['NewImage']['id']['S']
+    s3_bucket_name = event['Records'][0]['dynamodb']['NewImage']['s3_bucket_name']['S']
+    s3_bucket_key = event['Records'][0]['dynamodb']['NewImage']['s3_bucket_key']['S']
     list_of_fields = [
         'INVOICE_RECEIPT_ID',
         'INVOICE_RECEIPT_DATE',
@@ -98,7 +100,6 @@ def lambda_handler(event, context):
     INVOICE_RECEIPT_DATE = key_fields_value['INVOICE_RECEIPT_DATE']['Text']
     PO_NUMBER = key_fields_value['PO_NUMBER']['Text']
     VENDOR_NAME = key_fields_value['VENDOR_NAME']['Text']
-    print(type(INVOICE_RECEIPT_DATE))
     if INVOICE_RECEIPT_DATE is None:
         now = datetime.datetime.now()
         INVOICE_RECEIPT_DATE = now.strftime("%Y-%m-%d")
@@ -112,8 +113,8 @@ def lambda_handler(event, context):
     VENDOR_NAME = VENDOR_NAME.replace('.','')
     rename_pdf_file_name = INVOICE_RECEIPT_DATE + "_" + INVOICE_RECEIPT_ID + "_" + (PO_NUMBER or "POMISSING")+".pdf"
 
-    PDF_BUCKET_NAME = object_ref['BUCKET_NAME']
-    PDF_KEY = object_ref['KEY']
+    PDF_BUCKET_NAME = s3_bucket_name
+    PDF_KEY = s3_bucket_key
 
     # Save rename file to s3
     # Set the name of the bucket and the old and new keys (file names)
@@ -139,7 +140,9 @@ def lambda_handler(event, context):
 
     # Save invoice information to dynamodb
     graphql_query = f"""
-    mutation MyMutation($invoice_date: AWSDate = "{aws_date}", $invoice_number: String = "{INVOICE_RECEIPT_ID}", $purchase_order: String = "{PO_NUMBER}") {{
+    mutation MyMutation($invoice_date: AWSDate = "{aws_date}", 
+                        $invoice_number: String = "{INVOICE_RECEIPT_ID}",  
+                        $purchase_order: String = "{PO_NUMBER}") {{
     createInvoice(input: {{invoice_date: $invoice_date, invoice_number: $invoice_number, purchase_order: $purchase_order}})
     {{
                 id

@@ -62,8 +62,12 @@ def lambda_handler(event, context):
     S3_URL = f"https://{BUCKET_NAME}.s3.amazonaws.com/{OBJECT_KEY}"
     query = f"""
     mutation MyMutation($obj_ref: String = "{S3_URL}", 
-                        $textract_result: String = {json.dumps(json.dumps(textract_response))}, $attachmentID: ID = "{ATTACHMENT_ID}") {{
-    createPage(input: {{obj_ref: $obj_ref, textract_result: $textract_result, attachmentID: $attachmentID}}) {{
+                        $textract_result: String = {json.dumps(json.dumps(textract_response))}, 
+                        $attachmentID: ID = "{ATTACHMENT_ID}",
+                        $s3_bucket_name: String = "{BUCKET_NAME}", 
+                        $s3_bucket_key: String = "{OBJECT_KEY}"
+                        ) {{
+    createPage(input: {{attachmentID: $attachmentID, obj_ref: $obj_ref, s3_bucket_key: $s3_bucket_key, s3_bucket_name: $s3_bucket_name, textract_result: $textract_result}}) {{
                 id
             }}
     }}
