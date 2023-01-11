@@ -105,6 +105,7 @@ def lambda_handler(event, context):
         INVOICE_RECEIPT_DATE = now.strftime("%Y-%m-%d")
 
     if INVOICE_RECEIPT_ID is None:
+        print('Missing Fields: Invoice receipt Id')
         return "missing invoice receipt id"
 
     INVOICE_RECEIPT_DATE = INVOICE_RECEIPT_DATE.replace('/','-')
@@ -128,7 +129,7 @@ def lambda_handler(event, context):
     # Copy the file to the new key and delete the old key
     s3.copy_object(Bucket=bucket_name, CopySource={'Bucket': bucket_name, 'Key': old_key}, Key=new_key)
 
-
+    object_ref = "https://gumps-ap-inbox-automation-pdfpagesstorage-ck2ujlxmg3d5.s3.amazonaws.com/"+rename_pdf_file_name
 
     # String representation of a date
     date_str = INVOICE_RECEIPT_DATE
@@ -140,12 +141,22 @@ def lambda_handler(event, context):
 
     # Save invoice information to dynamodb
     graphql_query = f"""
-    mutation MyMutation($invoice_date: AWSDate = "{aws_date}", 
+    mutation MyMutation($invoice_date: AWSDate = "{aws_date}",
+                        $pageID: ID = "{pagesID}",
                         $invoice_number: String = "{INVOICE_RECEIPT_ID}",  
-                        $purchase_order: String = "{PO_NUMBER}") {{
-    createInvoice(input: {{invoice_date: $invoice_date, invoice_number: $invoice_number, purchase_order: $purchase_order}})
+                        $purchase_order: String = "{PO_NUMBER}",
+                        $vendor_name: String = "{VENDOR_NAME}",
+                        $object_ref: String = "{object_ref}") {{
+    createInvoice(input: {{invoice_date: $invoice_date,
+                           pageID: $pageID, 
+                           invoice_number: $invoice_number, 
+                           object_ref: $object_ref,
+                           vendor_name: $vendor_name, 
+                           purchase_order: $purchase_order}})
     {{
-                id
+                id,
+                invoice_number,
+                vendor_name
             }}
     }}
 
@@ -153,6 +164,7 @@ def lambda_handler(event, context):
 
     response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
 
+    print(response)
     # Create an SQS client
     sqs = boto3.client('sqs')
 
@@ -168,7 +180,7 @@ def lambda_handler(event, context):
                  INVOICE_RECEIPT_ID, 
                  INVOICE_RECEIPT_DATE, 
                  PO_NUMBER, 
-                 "https://gumps-ap-inbox-automation-pdfpagesstorage-ck2ujlxmg3d5.s3.amazonaws.com/"+rename_pdf_file_name]
+                 object_ref]
     }
 
     # Convert the message body to a JSON string
