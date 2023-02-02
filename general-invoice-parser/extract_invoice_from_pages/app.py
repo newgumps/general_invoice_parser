@@ -175,10 +175,10 @@ def lambda_handler(event, context):
                     'Invoice Number', 
                     'Invoice Date', 
                     'PO Number', 
-                    'S3 Links'],
+                    's3_url'],
         "Body": [VENDOR_NAME, 
                  INVOICE_RECEIPT_ID, 
-                 INVOICE_RECEIPT_DATE, 
+                 aws_date, 
                  PO_NUMBER, 
                  object_ref]
     }
