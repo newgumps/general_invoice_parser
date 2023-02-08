@@ -67,7 +67,7 @@ def lambda_handler(event, context):
 
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
-    print(event)
+    print(event['extract_pdf_attachments'])
     # Extract Invoice Information from pages
     document_dict_textract_extract = json.loads(event['Records'][0]['dynamodb']['NewImage']['textract_result']['S'])
     object_ref = event['Records'][0]['dynamodb']['NewImage']['obj_ref']['S']
@@ -199,10 +199,11 @@ def lambda_handler(event, context):
     # Update DynamoDB Invoice Status to "Send to CSV Compiler"
 
     return {
-        "statusCode": 200,
-        "body": json.dumps(
-            {
-                "message": "success",
-            }
-        ),
+        "ExtractInvoiceFromPages": {
+            "InvoiceNumber": INVOICE_RECEIPT_ID,
+            "InvoiceDate": INVOICE_RECEIPT_DATE,
+            "PurchaseOrder": PO_NUMBER,
+            "VendorName": VENDOR_NAME,
+            "S3Link": object_ref
+        }
     }

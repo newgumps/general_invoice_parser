@@ -118,6 +118,9 @@ def lambda_handler(event, context):
                 loggings('GENERALINVOICEPARSER_EMAILTOPDF', 'SUCCESS_FILE_UPLOADED', "File Uploaded to S3: " + OBJECT_KEY)
                 print(f"{file} is uploaded to S3 bucket {PREPROCESSING_BUCKET} with key {OBJECT_KEY}")
     """
-    return None
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Hello from Lambda!')
+    }
     
 

@@ -136,7 +136,15 @@ def lambda_handler(event, context):
 
         graphql_response = query_graphql_ap_inbox_db(accessToken, endpoint, query_attachments)
         print(graphql_response)
+        ATTACHMENTS_ID = graphql_response['data']['createAttachment']['id']
     return {
-        'statusCode': 200,
-        'body': json.dumps('Success')
+        "extract_pdf_attachments": {
+            "Attachments": "Saved",
+            "EmailId": email_id,
+            "EmailFrom": email_from[1],
+            "email": json.loads(object_ref),
+            "attachments": {"AttachmentId":ATTACHMENTS_ID,
+                            "BUCKET_NAME": ATTACHMENTS_BUCKET, 
+                            "KEY": file_name}
+            }
     }

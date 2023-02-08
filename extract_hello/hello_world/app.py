@@ -1,6 +1,7 @@
 import json
-import boto3
-textract_client = boto3.client('textract')
+
+# import requests
+
 
 def lambda_handler(event, context):
     """Sample pure Lambda function
@@ -23,22 +24,19 @@ def lambda_handler(event, context):
 
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
-    print(event)
-    OBJECT_KEY = event['extract_pdf_attachments']['attachments']['KEY']
-    BUCKET_NAME = event['extract_pdf_attachments']['attachments']['BUCKET_NAME']
-    response = textractmodule.analyze_expense(
-            Document={
-                'S3Object': {
-                    'Bucket': BUCKET_NAME,
-                    'Name': OBJECT_KEY
-                    }})
-    #TODO: SAVE TO S3   
-    
+
+    # try:
+    #     ip = requests.get("http://checkip.amazonaws.com/")
+    # except requests.RequestException as e:
+    #     # Send some context about this error to Lambda Logs
+    #     print(e)
+
+    #     raise e
+
     return {
         "statusCode": 200,
-        "body": json.dumps(
-            {
-                "message": "hello world",
-            }
-        ),
+        "body": json.dumps({
+            "message": "hello world",
+            # "location": ip.text.replace("\n", "")
+        }),
     }

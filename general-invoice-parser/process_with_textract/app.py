@@ -46,11 +46,13 @@ def lambda_handler(event, context):
     # save textract output to dynamodb
     # write to t
     print(event)
-    obj_ref = json.loads(event['Records'][0]['Sns']['Message'])
+    obj_ref = event['extract_pdf_attachments']['attachments']
     BUCKET_NAME = obj_ref['BUCKET_NAME']
     OBJECT_KEY = obj_ref['KEY']
-    ATTACHMENT_ID = obj_ref['ATTACHMENT_ID']
-    del obj_ref['ATTACHMENT_ID']
+    ATTACHMENT_ID = obj_ref['AttachmentId']
+    print(BUCKET_NAME)
+    print(OBJECT_KEY)
+    print(ATTACHMENT_ID)
     textractmodule = boto3.client('textract')
     textract_response = textractmodule.analyze_expense(
             Document={
@@ -74,7 +76,7 @@ def lambda_handler(event, context):
         """
 
     response = query_graphql_ap_inbox_db(accessToken, endpoint, query)
-
+    PAGE_ID = response['data']['createPage']['id']
 
     cloudwatch_client = boto3.client('cloudwatch')
 
@@ -90,10 +92,8 @@ def lambda_handler(event, context):
         )
 
     return {
-        "statusCode": 200,
-        "body": json.dumps(
-            {
-                "message": "success!",
-            }
-        ),
+        "process_with_textract": {
+            "PAGE_ID": PAGE_ID,
+            "textract_response": textract_response,
+        }
     }

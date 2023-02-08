@@ -39,6 +39,10 @@ Parameters:
   PagesDDBStreams:
     Type: String
     Default: arn:aws:dynamodb:us-east-1:570685116845:table/Page-iumxb4tvivfkpokn5l7ot2wd64-staging/stream/2022-12-14T17:42:51.302
+
+  APStateMachine:
+    Type: String
+    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-automation
 Resources:
 
   ReceivedEmailStorage:
@@ -121,6 +125,28 @@ Resources:
 
   ProcessedCSVFileHandle:
     Type: 'AWS::S3::Bucket'
+
+  SNStoStepFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      Timeout: 20
+      PackageType: Image
+      Architectures:
+        - "arm64"
+      Policies: 
+
+        - SNSCrudPolicy:
+            TopicName: !GetAtt SavedInS3Notification.TopicName
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: ap-automation
+
+      Environment:
+        Variables: 
+          STATE_MACHINE_ARN: !Ref APStateMachine
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: ./SNStoStepFunction
+      DockerTag: python3.8-v1
 
   ExtractAttachmentsFromEmail:
     Type: AWS::Serverless::Function 
@@ -420,6 +446,8 @@ Resources:
         Variables:
           TOPIC_ARN: !Ref SavePdfPagesTopic
       Policies: 
+        - S3CrudPolicy:
+            BucketName: !Ref AttachmentsStorage
         - TextractPolicy: {}
         - CloudWatchPutMetricPolicy: {}
         - S3CrudPolicy:

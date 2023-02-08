@@ -12,8 +12,8 @@ PDF_FILE_HANDLE_BUCKET = os.environ.get('PDF_FILE_HANDLE_BUCKET')
 sns = boto3.client('sns')
 def lambda_handler(event, context):
     print(event)
-    OBJECT_KEY = event['Records'][0]['s3']['object']['key']
-    BUCKET_NAME = event['Records'][0]['s3']['bucket']['name']
+    OBJECT_KEY = event['extract_pdf_attachments']['attachments']['KEY']
+    BUCKET_NAME = event['extract_pdf_attachments']['attachments']['BUCKET_NAME']
 
     df = text_tract_parser({'BUCKET':BUCKET_NAME,'KEY':OBJECT_KEY})
     file_handle_name_s3 = df['file_handle_pdf_filename'].iloc[0]
