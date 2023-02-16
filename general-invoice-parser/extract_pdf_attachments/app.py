@@ -7,7 +7,7 @@ import mailparser
 import requests
 import datetime
 
-accessToken = "da2-kdsrvisnq5g63iahdh44elttay"
+accessToken = "da2-kar2jm52tja5tcggis7sapyu7a"
 endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
 
 def query_graphql_ap_inbox_db(accessToken, endpoint, query):
@@ -84,15 +84,17 @@ def lambda_handler(event, context):
     """
     
     graphql_response = query_graphql_ap_inbox_db(accessToken, endpoint, email_query)
-
+    print(graphql_response)
     email_id = graphql_response['data']['createEmail']['id']
 
 
     #Save Attachments
+    payload = []
     for attachment in mail.mail_partial['attachments']:
         print(attachment.get('filename'))
         print(attachment.get('mail_content_type'))
         file_name = attachment.get('filename')
+        file_name = file_name.replace(" ", "_")
         file_name = file_name.replace(" ", "_")
         file_bytes = attachment.get('payload')
         content_type = attachment.get('mail_content_type')
@@ -137,7 +139,7 @@ def lambda_handler(event, context):
         graphql_response = query_graphql_ap_inbox_db(accessToken, endpoint, query_attachments)
         print(graphql_response)
         ATTACHMENTS_ID = graphql_response['data']['createAttachment']['id']
-    return {
+        payload.append({
         "extract_pdf_attachments": {
             "Attachments": "Saved",
             "EmailId": email_id,
@@ -147,4 +149,6 @@ def lambda_handler(event, context):
                             "BUCKET_NAME": ATTACHMENTS_BUCKET, 
                             "KEY": file_name}
             }
-    }
+            }
+        )
+    return payload

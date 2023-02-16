@@ -461,6 +461,49 @@ Resources:
       Dockerfile: Dockerfile
       DockerContext: ./process_with_textract
       DockerTag: python3.8-v1
+
+  CheckWorkDocsFolders:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.8
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+    
+  CreateNewWorkDocsFolder:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.8
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+
+  AddToWorkDocs:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.8
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+      Layers:
+        - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
+    
+        
   ExtractInvoiceFromPagesFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -469,6 +512,8 @@ Resources:
             QueueName: !GetAtt  CSVCompilerQueue.QueueName
         - S3CrudPolicy:
             BucketName: !Ref PDFPagesStorage
+        - S3CrudPolicy:
+            BucketName: !Ref AttachmentsStorage
       Events:
         Stream:
           Type: DynamoDB

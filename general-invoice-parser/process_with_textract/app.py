@@ -2,7 +2,7 @@ import json
 import boto3
 import requests
 
-accessToken = "da2-kdsrvisnq5g63iahdh44elttay"
+accessToken = "da2-kar2jm52tja5tcggis7sapyu7a"
 endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
 
 def query_graphql_ap_inbox_db(accessToken, endpoint, query):

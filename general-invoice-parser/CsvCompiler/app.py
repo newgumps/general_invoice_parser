@@ -188,6 +188,7 @@ def lambda_handler(event, context):
     """
     """
     print(event)
+    '''
     list_of_csv = []
     list_of_pdf = []
     records = event['Records']
@@ -259,14 +260,15 @@ def lambda_handler(event, context):
         File uploaded to RIEM Imports: {netsuites_filename}
         """
         )
+        '''
     return {
         "statusCode": 200,
         "body": json.dumps(
             {
             "message": f""" 
-            List of pdf upload to vendor invoice: {list_of_pdf}
+            List of pdf upload to vendor invoice: 
 
-            File uploaded to RIEM Imports: {netsuites_filename}
+            File uploaded to RIEM Imports: 
             """
             }
         ),

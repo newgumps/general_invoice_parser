@@ -120,7 +120,7 @@ def lambda_handler(event, context):
                             "BUCKET_NAME": PDF_PAGES_BUCKET,
                             "KEY": OBJECT_KEY
                         }))        
-
+ 
     return {
         "statusCode": 200,
         "body": json.dumps(

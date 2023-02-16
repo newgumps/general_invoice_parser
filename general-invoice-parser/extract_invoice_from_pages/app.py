@@ -4,7 +4,7 @@ import boto3
 from dateutil.parser import parse
 import datetime
 import requests
-accessToken = "da2-kdsrvisnq5g63iahdh44elttay"
+accessToken = "da2-kar2jm52tja5tcggis7sapyu7a"
 endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
 
 def query_graphql_ap_inbox_db(accessToken, endpoint, query):
@@ -28,7 +28,7 @@ def parse_date(date_str):
     except ValueError:
         return None
 def convert_to_aws_date(date):
-    return date.strftime('%Y%m%dT%H%M%SZ')
+    return date.strftime('%Y%m%d')
 
 
 def query_graphql_ap_inbox_db(accessToken, endpoint, query):
@@ -67,13 +67,11 @@ def lambda_handler(event, context):
 
         Return doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
     """
-    print(event['extract_pdf_attachments'])
     # Extract Invoice Information from pages
-    document_dict_textract_extract = json.loads(event['Records'][0]['dynamodb']['NewImage']['textract_result']['S'])
-    object_ref = event['Records'][0]['dynamodb']['NewImage']['obj_ref']['S']
-    pagesID = event['Records'][0]['dynamodb']['NewImage']['id']['S']
-    s3_bucket_name = event['Records'][0]['dynamodb']['NewImage']['s3_bucket_name']['S']
-    s3_bucket_key = event['Records'][0]['dynamodb']['NewImage']['s3_bucket_key']['S']
+    document_dict_textract_extract = event['ProcessWTextract']['ProcessWTextract']['TextractOutput']['process_with_textract']['textract_response']
+    pagesID = event['ProcessWTextract']['ProcessWTextract']['TextractOutput']['process_with_textract']['PAGE_ID']
+    s3_bucket_name = event['extract_pdf_attachments']['attachments']['BUCKET_NAME']
+    s3_bucket_key = event['extract_pdf_attachments']['attachments']['KEY']
     list_of_fields = [
         'INVOICE_RECEIPT_ID',
         'INVOICE_RECEIPT_DATE',
@@ -98,21 +96,29 @@ def lambda_handler(event, context):
     
     INVOICE_RECEIPT_ID = key_fields_value['INVOICE_RECEIPT_ID']['Text']
     INVOICE_RECEIPT_DATE = key_fields_value['INVOICE_RECEIPT_DATE']['Text']
+    if INVOICE_RECEIPT_ID is None:
+        return {
+            "ExtractInvoiceFromPages": {
+                "InvoiceNumber": None,
+                "InvoiceDate": None,
+                "PurchaseOrder": None,
+                "VendorName": None,
+                "S3Link": None,
+                "s3_key": None,
+                "s3_bucket": None,
+            }
+        }
+
     PO_NUMBER = key_fields_value['PO_NUMBER']['Text']
     VENDOR_NAME = key_fields_value['VENDOR_NAME']['Text']
     if INVOICE_RECEIPT_DATE is None:
         now = datetime.datetime.now()
         INVOICE_RECEIPT_DATE = now.strftime("%Y-%m-%d")
-
-    if INVOICE_RECEIPT_ID is None:
-        print('Missing Fields: Invoice receipt Id')
-        return "missing invoice receipt id"
-
     INVOICE_RECEIPT_DATE = INVOICE_RECEIPT_DATE.replace('/','-')
     INVOICE_RECEIPT_DATE = parse_date(INVOICE_RECEIPT_DATE)
     INVOICE_RECEIPT_DATE = convert_to_aws_date(INVOICE_RECEIPT_DATE)
     VENDOR_NAME = VENDOR_NAME.replace('.','')
-    rename_pdf_file_name = INVOICE_RECEIPT_DATE + "_" + INVOICE_RECEIPT_ID + "_" + (PO_NUMBER or "POMISSING")+".pdf"
+    rename_pdf_file_name = INVOICE_RECEIPT_DATE + "_INV_" + INVOICE_RECEIPT_ID + (("_"+PO_NUMBER) or "")+".pdf"
 
     PDF_BUCKET_NAME = s3_bucket_name
     PDF_KEY = s3_bucket_key
@@ -164,6 +170,8 @@ def lambda_handler(event, context):
 
     response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
 
+    if PO_NUMBER == "":
+        PO_NUMBER = None
     print(response)
     # Create an SQS client
     sqs = boto3.client('sqs')
@@ -187,13 +195,13 @@ def lambda_handler(event, context):
     message_body = json.dumps(message_body)
 
     # Publish the message to the specified SQS queue
-    response = sqs.send_message(
-        QueueUrl=queue_url,
-        MessageBody=message_body
-    )
+    #response = (sqs.send_message
+    #    QueueUrl=queue_url,
+    #    MessageBody=message_body)
+    #
 
     # Print the message ID of the published message
-    print(response['MessageId'])
+    #print(response['MessageId'])
 
     # Vendor Name, Invoice Number, Invoice Date, PO Number, S3 Links
     # Update DynamoDB Invoice Status to "Send to CSV Compiler"
@@ -201,9 +209,11 @@ def lambda_handler(event, context):
     return {
         "ExtractInvoiceFromPages": {
             "InvoiceNumber": INVOICE_RECEIPT_ID,
-            "InvoiceDate": INVOICE_RECEIPT_DATE,
+            "InvoiceDate": aws_date,
             "PurchaseOrder": PO_NUMBER,
             "VendorName": VENDOR_NAME,
-            "S3Link": object_ref
+            "S3Link": object_ref,
+            "s3_key": new_key,
+            "s3_bucket": bucket_name,
         }
     }
