@@ -54,12 +54,21 @@ def lambda_handler(event, context):
     print(OBJECT_KEY)
     print(ATTACHMENT_ID)
     textractmodule = boto3.client('textract')
-    textract_response = textractmodule.analyze_expense(
-            Document={
-                'S3Object': {
-                    'Bucket': BUCKET_NAME,
-                    'Name': OBJECT_KEY
-                    }})
+    try:
+        textract_response = textractmodule.analyze_expense(
+                Document={
+                    'S3Object': {
+                        'Bucket': BUCKET_NAME,
+                        'Name': OBJECT_KEY
+                        }})
+    except Exception as e:
+        print(e)
+        return  {
+        "process_with_textract": {
+            "PAGE_ID": None,
+            "textract_response": None,
+        }
+    }
 
     S3_URL = f"https://{BUCKET_NAME}.s3.amazonaws.com/{OBJECT_KEY}"
     query = f"""
@@ -76,6 +85,7 @@ def lambda_handler(event, context):
         """
 
     response = query_graphql_ap_inbox_db(accessToken, endpoint, query)
+    print (response)
     PAGE_ID = response['data']['createPage']['id']
 
     cloudwatch_client = boto3.client('cloudwatch')

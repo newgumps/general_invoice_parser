@@ -1,14 +1,30 @@
 import boto3
 import base64
 import json
-import email 
 import os
 import mailparser
 import requests
 import datetime
+import re
 
 accessToken = "da2-kar2jm52tja5tcggis7sapyu7a"
 endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
+
+def convert_to_s3_filename(string):
+    # Replace special characters with a hyphen
+    string = re.sub(r'[^\w\d-]', '-', string)
+
+    # Convert non-ASCII characters to their nearest ASCII equivalent
+    string = string.encode('ascii', 'ignore').decode('ascii')
+
+    # Add a timestamp to make the filename unique
+    timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    string = f'{timestamp}-{string}'
+
+    # Truncate the filename to 255 characters (the S3 limit)
+    string = string[:255]
+
+    return string
 
 def query_graphql_ap_inbox_db(accessToken, endpoint, query):
     # establish a session with requests session
@@ -93,9 +109,12 @@ def lambda_handler(event, context):
     for attachment in mail.mail_partial['attachments']:
         print(attachment.get('filename'))
         print(attachment.get('mail_content_type'))
-        file_name = attachment.get('filename')
-        file_name = file_name.replace(" ", "_")
-        file_name = file_name.replace(" ", "_")
+        original_file_name = attachment.get('filename')
+        file_name = original_file_name.replace(" ", "_")
+        file_name = file_name.rstrip('.pdf')
+        file_name = file_name.rstrip('.PDF')
+        file_name = convert_to_s3_filename(file_name)
+        file_name = file_name + ".pdf"
         file_bytes = attachment.get('payload')
         content_type = attachment.get('mail_content_type')
 
@@ -117,13 +136,11 @@ def lambda_handler(event, context):
                         {
                             "Name": 'Content Type',
                             "Value": content_type
-
                         },
                         ],
                     'Unit': "None",
                     'Value': 1
                 }],
-            
             )
         # Save to DB    
 

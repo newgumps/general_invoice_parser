@@ -26,7 +26,7 @@ def lambda_handler(event, context):
     print(event)
     OBJECT_KEY = event['extract_pdf_attachments']['attachments']['KEY']
     BUCKET_NAME = event['extract_pdf_attachments']['attachments']['BUCKET_NAME']
-    response = textractmodule.analyze_expense(
+    response = textract_client.analyze_expense(
             Document={
                 'S3Object': {
                     'Bucket': BUCKET_NAME,
