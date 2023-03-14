@@ -48,6 +48,7 @@ def lambda_handler(event, context):
     print(event)
     obj_ref = event['extract_pdf_attachments']['attachments']
     BUCKET_NAME = obj_ref['BUCKET_NAME']
+    ORIGINAL_FILENAME = obj_ref['OriginalFileName']
     OBJECT_KEY = obj_ref['KEY']
     ATTACHMENT_ID = obj_ref['AttachmentId']
     print(BUCKET_NAME)
@@ -72,21 +73,19 @@ def lambda_handler(event, context):
 
     S3_URL = f"https://{BUCKET_NAME}.s3.amazonaws.com/{OBJECT_KEY}"
     query = f"""
-    mutation MyMutation($obj_ref: String = "{S3_URL}", 
-                        $textract_result: String = {json.dumps(json.dumps(textract_response))}, 
-                        $attachmentID: ID = "{ATTACHMENT_ID}",
-                        $s3_bucket_name: String = "{BUCKET_NAME}", 
-                        $s3_bucket_key: String = "{OBJECT_KEY}"
-                        ) {{
-    createPage(input: {{attachmentID: $attachmentID, obj_ref: $obj_ref, s3_bucket_key: $s3_bucket_key, s3_bucket_name: $s3_bucket_name, textract_result: $textract_result}}) {{
+            mutation MyMutation {{
+            updateAttachment(input: {{id: "18533c96-ded9-4148-895d-90de98898f30", 
+                                original_filenames: "{ORIGINAL_FILENAME}"}}) {{
                 id
+                obj_ref
+                original_filenames
             }}
-    }}
+            }}
+
         """
 
     response = query_graphql_ap_inbox_db(accessToken, endpoint, query)
     print (response)
-    PAGE_ID = response['data']['createPage']['id']
 
     cloudwatch_client = boto3.client('cloudwatch')
 
@@ -103,7 +102,7 @@ def lambda_handler(event, context):
 
     return {
         "process_with_textract": {
-            "PAGE_ID": PAGE_ID,
+            "PAGE_ID": None,
             "textract_response": textract_response,
         }
     }

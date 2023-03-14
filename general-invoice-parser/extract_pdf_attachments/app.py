@@ -6,25 +6,10 @@ import mailparser
 import requests
 import datetime
 import re
+import uuid
 
 accessToken = "da2-kar2jm52tja5tcggis7sapyu7a"
 endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
-
-def convert_to_s3_filename(string):
-    # Replace special characters with a hyphen
-    string = re.sub(r'[^\w\d-]', '-', string)
-
-    # Convert non-ASCII characters to their nearest ASCII equivalent
-    string = string.encode('ascii', 'ignore').decode('ascii')
-
-    # Add a timestamp to make the filename unique
-    timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-    string = f'{timestamp}-{string}'
-
-    # Truncate the filename to 255 characters (the S3 limit)
-    string = string[:255]
-
-    return string
 
 def query_graphql_ap_inbox_db(accessToken, endpoint, query):
     # establish a session with requests session
@@ -101,6 +86,7 @@ def lambda_handler(event, context):
     
     graphql_response = query_graphql_ap_inbox_db(accessToken, endpoint, email_query)
     print(graphql_response)
+
     email_id = graphql_response['data']['createEmail']['id']
 
 
@@ -110,11 +96,9 @@ def lambda_handler(event, context):
         print(attachment.get('filename'))
         print(attachment.get('mail_content_type'))
         original_file_name = attachment.get('filename')
-        file_name = original_file_name.replace(" ", "_")
-        file_name = file_name.rstrip('.pdf')
-        file_name = file_name.rstrip('.PDF')
-        file_name = convert_to_s3_filename(file_name)
-        file_name = file_name + ".pdf"
+        original_file_name = original_file_name.lower()
+        # Generate a unique filename
+        file_name = str(uuid.uuid4()) + ".pdf"
         file_bytes = attachment.get('payload')
         content_type = attachment.get('mail_content_type')
 
@@ -146,11 +130,19 @@ def lambda_handler(event, context):
 
         #Generate Query String
         query_attachments = f"""
-        mutation MyMutation2($emailID: ID = "{email_id}", $obj_ref: String = {json.dumps(attachments_ref)}, $type: String = "{content_type}") {{
-        createAttachment(input: {{emailID: $emailID, obj_ref: $obj_ref, type: $type}}) {{
-                id
+            mutation MyMutation2(
+                $emailID: ID = "{email_id}", 
+                $obj_ref: String = {json.dumps(attachments_ref)}, 
+                $type: String = "{content_type}") {{
+            createAttachment(input: 
+                    {{
+                        emailID: $emailID, 
+                        obj_ref: $obj_ref, 
+                        type: $type
+                        }}) {{
+                    id
+                }}
             }}
-        }}
         """
 
         graphql_response = query_graphql_ap_inbox_db(accessToken, endpoint, query_attachments)
@@ -164,7 +156,8 @@ def lambda_handler(event, context):
             "email": json.loads(object_ref),
             "attachments": {"AttachmentId":ATTACHMENTS_ID,
                             "BUCKET_NAME": ATTACHMENTS_BUCKET, 
-                            "KEY": file_name}
+                            "KEY": file_name,
+                            "OriginalFileName": original_file_name}
             }
             }
         )

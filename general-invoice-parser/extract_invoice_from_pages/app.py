@@ -21,7 +21,6 @@ def query_graphql_ap_inbox_db(accessToken, endpoint, query):
     )
     return response.json()
 
-
 def parse_date(date_str):
     try:
         return parse(date_str)
@@ -29,21 +28,6 @@ def parse_date(date_str):
         return None
 def convert_to_aws_date(date):
     return date.strftime('%Y%m%d')
-
-
-def query_graphql_ap_inbox_db(accessToken, endpoint, query):
-    # establish a session with requests session
-    session = requests.Session()
-    # As found in AWS Appsync under Settings for your endpoint.
-    APPSYNC_API_ENDPOINT_URL = endpoint
-    # Now we can simply post the request...
-    response = session.request(
-        url=APPSYNC_API_ENDPOINT_URL,
-        method='POST',
-        headers={'x-api-key': accessToken},
-        json={'query': query}
-    )
-    return response.json()
 
 
 def lambda_handler(event, context):
@@ -96,19 +80,6 @@ def lambda_handler(event, context):
     
     INVOICE_RECEIPT_ID = key_fields_value['INVOICE_RECEIPT_ID']['Text']
     INVOICE_RECEIPT_DATE = key_fields_value['INVOICE_RECEIPT_DATE']['Text']
-    if INVOICE_RECEIPT_ID is None:
-        return {
-            "ExtractInvoiceFromPages": {
-                "InvoiceNumber": None,
-                "InvoiceDate": None,
-                "PurchaseOrder": None,
-                "VendorName": None,
-                "S3Link": None,
-                "s3_key": None,
-                "s3_bucket": None,
-            }
-        }
-
     PO_NUMBER = key_fields_value['PO_NUMBER']['Text']
     VENDOR_NAME = key_fields_value['VENDOR_NAME']['Text']
     if INVOICE_RECEIPT_DATE is None:
@@ -117,25 +88,6 @@ def lambda_handler(event, context):
     INVOICE_RECEIPT_DATE = INVOICE_RECEIPT_DATE.replace('/','-')
     INVOICE_RECEIPT_DATE = parse_date(INVOICE_RECEIPT_DATE)
     INVOICE_RECEIPT_DATE = convert_to_aws_date(INVOICE_RECEIPT_DATE)
-    VENDOR_NAME = VENDOR_NAME.replace('.','')
-    rename_pdf_file_name = INVOICE_RECEIPT_DATE + "_INV_" + INVOICE_RECEIPT_ID + (("_"+PO_NUMBER) or "")+".pdf"
-
-    PDF_BUCKET_NAME = s3_bucket_name
-    PDF_KEY = s3_bucket_key
-
-    # Save rename file to s3
-    # Set the name of the bucket and the old and new keys (file names)
-    s3 = boto3.client('s3')
-    bucket_name = PDF_BUCKET_NAME
-    old_key = PDF_KEY
-    new_key = rename_pdf_file_name
-
-    # Create an S3 client
-
-    # Copy the file to the new key and delete the old key
-    s3.copy_object(Bucket=bucket_name, CopySource={'Bucket': bucket_name, 'Key': old_key}, Key=new_key)
-
-    object_ref = "https://gumps-ap-inbox-automation-pdfpagesstorage-ck2ujlxmg3d5.s3.amazonaws.com/"+rename_pdf_file_name
 
     # String representation of a date
     date_str = INVOICE_RECEIPT_DATE
@@ -148,13 +100,11 @@ def lambda_handler(event, context):
     # Save invoice information to dynamodb
     graphql_query = f"""
     mutation MyMutation($invoice_date: AWSDate = "{aws_date}",
-                        $pageID: ID = "{pagesID}",
                         $invoice_number: String = "{INVOICE_RECEIPT_ID}",  
                         $purchase_order: String = "{PO_NUMBER}",
                         $vendor_name: String = "{VENDOR_NAME}",
-                        $object_ref: String = "{object_ref}") {{
+                        ) {{
     createInvoice(input: {{invoice_date: $invoice_date,
-                           pageID: $pageID, 
                            invoice_number: $invoice_number, 
                            object_ref: $object_ref,
                            vendor_name: $vendor_name, 
@@ -170,41 +120,7 @@ def lambda_handler(event, context):
 
     response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
 
-    if PO_NUMBER == "":
-        PO_NUMBER = None
     print(response)
-    # Create an SQS client
-    sqs = boto3.client('sqs')
-
-    # Set the queue URL and the message you want to send
-    queue_url = os.environ['SQS_QUEUE_URL']
-    message_body = {
-        "Headers": ['Vendor Name', 
-                    'Invoice Number', 
-                    'Invoice Date', 
-                    'PO Number', 
-                    's3_url'],
-        "Body": [VENDOR_NAME, 
-                 INVOICE_RECEIPT_ID, 
-                 aws_date, 
-                 PO_NUMBER, 
-                 object_ref]
-    }
-
-    # Convert the message body to a JSON string
-    message_body = json.dumps(message_body)
-
-    # Publish the message to the specified SQS queue
-    #response = (sqs.send_message
-    #    QueueUrl=queue_url,
-    #    MessageBody=message_body)
-    #
-
-    # Print the message ID of the published message
-    #print(response['MessageId'])
-
-    # Vendor Name, Invoice Number, Invoice Date, PO Number, S3 Links
-    # Update DynamoDB Invoice Status to "Send to CSV Compiler"
 
     return {
         "ExtractInvoiceFromPages": {
@@ -212,8 +128,5 @@ def lambda_handler(event, context):
             "InvoiceDate": aws_date,
             "PurchaseOrder": PO_NUMBER,
             "VendorName": VENDOR_NAME,
-            "S3Link": object_ref,
-            "s3_key": new_key,
-            "s3_bucket": bucket_name,
         }
     }
