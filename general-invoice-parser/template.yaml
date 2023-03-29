@@ -515,6 +515,158 @@ Resources:
                 'body': 'Hello from the zip archive'
             }
   
+  TextractResultsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+
+  QueryJobIDFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+  SplitPagesTextractFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+
+
+  ReturnTextractOutcomesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+
+  PullAlertsQueue:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      Environment:
+        Variables:
+          SQS_QUEUE_URL: !Ref APAlertsQueue
+      Policies:
+        - SQSPollerPolicy:
+            QueueName:
+              !GetAtt APAlertsQueue.QueueName
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+
+  ProcessTextract:
+    Type: AWS::Serverless::Function
+    Properties:
+      Policies: 
+        - S3CrudPolicy:
+            BucketName: !Ref AttachmentsStorage
+        - TextractPolicy: {}
+        - CloudWatchPutMetricPolicy: {}
+        - S3CrudPolicy:
+            BucketName: !Ref PDFPagesStorage
+        - SNSCrudPolicy:
+            TopicName: !GetAtt  SavePdfPagesTopic.TopicName
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+
+  FilterQueue:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+  APAlertsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: APAlertsQueue
+
+  APWaitTextractsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: APWaitTextractsQueue
+
+  APWaitForTextractTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: APWaitForTextractTopic
+
+
+  APAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: APAlertsTopic
+
+  GenerateAlertsDocs:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+
+  UploadAlertsDocsToWorkDocs:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
 
   AddToWorkDocsMissingVendorsFolders:
     Type: AWS::Serverless::Function
@@ -529,7 +681,33 @@ Resources:
                 'body': 'Hello from the zip archive'
             }
 
+  AddToWorkDocsNonPDFFolders:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+
   FileRenamingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
+
+  PageCompile:
     Type: AWS::Serverless::Function
     Properties:
       Handler: index.handler
@@ -558,6 +736,22 @@ Resources:
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
     
+  TextractExtractFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.9
+      Timeout: 9
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+                }
+      Layers:
+        - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
+  
   AddToWorkDocsManualReviewFolders:
     Type: AWS::Serverless::Function
     Properties:
@@ -585,7 +779,18 @@ Resources:
             }
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
-    
+  
+  SplitPDFbyGroups:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 60
+      PackageType: Image
+      Architectures:
+        - arm64
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: ./split_pdf_by_groups
+      DockerTag: python3.8-v1
         
   ExtractInvoiceFromPagesFunction:
     Type: AWS::Serverless::Function

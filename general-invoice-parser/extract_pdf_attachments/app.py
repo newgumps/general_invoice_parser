@@ -43,8 +43,20 @@ def lambda_handler(event, context):
 
     # Extract the email contents
     mail = mailparser.parse_from_string(data)
+    email_body = mail.body
+
+    # Use a regex pattern to match the forwarded sender's email address
+    forwarded_sender_pattern = re.compile(r"From: .*<(.+@.+)>")
+    match = forwarded_sender_pattern.search(email_body)
+
+    if match:
+        original_sender_email = match.group(1)
+    else:
+        original_sender_email = None
+
     email_from = mail._from[0]
     object_ref = json.dumps({"BUCKET_NAME": BUCKET_NAME, "KEY": EMAIL_OBJ_KEY})
+
     inbox_date = mail.date.strftime('%Y-%m-%d')
 
     cloudwatch_client = boto3.client('cloudwatch')
@@ -70,11 +82,13 @@ def lambda_handler(event, context):
 
     email_query = f"""  
         mutation MyMutation($Sender: AWSEmail = "{email_from[1]}",
+                            $Extracted_Original_Sender: String = "{original_sender_email}",
                             $inbox_date: AWSDate = "{inbox_date}", 
                             $object_ref: AWSJSON = {json.dumps(object_ref)},
                             $process_datetime: AWSDateTime = "{datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')}") {{
         createEmail(input: {{
                             Sender: $Sender,
+                            Extracted_Original_Sender: $Extracted_Original_Sender,
                             inbox_date: $inbox_date, 
                             object_ref: $object_ref, 
                             process_datetime: $process_datetime}}) {{
@@ -97,8 +111,10 @@ def lambda_handler(event, context):
         print(attachment.get('mail_content_type'))
         original_file_name = attachment.get('filename')
         original_file_name = original_file_name.lower()
+        extensions_original = original_file_name.split(".")[-1].lower()
         # Generate a unique filename
-        file_name = str(uuid.uuid4()) + ".pdf"
+        unique_id = str(uuid.uuid4())
+        file_name = unique_id + "."+ extensions_original
         file_bytes = attachment.get('payload')
         content_type = attachment.get('mail_content_type')
 
@@ -153,6 +169,9 @@ def lambda_handler(event, context):
             "Attachments": "Saved",
             "EmailId": email_id,
             "EmailFrom": email_from[1],
+            "UUID": unique_id,
+            "Attachments": extensions_original,
+            "OriginalSender": original_sender_email,
             "email": json.loads(object_ref),
             "attachments": {"AttachmentId":ATTACHMENTS_ID,
                             "BUCKET_NAME": ATTACHMENTS_BUCKET, 
