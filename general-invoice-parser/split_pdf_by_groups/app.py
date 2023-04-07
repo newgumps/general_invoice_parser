@@ -39,8 +39,14 @@ def lambda_handler(event, context):
 
                 for page_num in group:
                     pdf_writer.addPage(pdf_reader.getPage(int(page_num) - 1))
+                
+                if rename_files_parts[group_index]['INVOICE_RECEIPT_ID'] == None:
+                    rename_files_parts[group_index]['INVOICE_RECEIPT_ID'] = ''
+                if rename_files_parts[group_index]['PO_NUMBER'] == None:
+                    rename_files_parts[group_index]['PO_NUMBER'] = ''
+                
+                output_filename = (rename_files_parts[group_index]['INVOICE_DATE'] + "_" ) + rename_files_parts[group_index]['INVOICE_RECEIPT_ID'].replace('/','') +  '_' +rename_files_parts[group_index]['PO_NUMBER'] + '.pdf'
 
-                output_filename = rename_files_parts[group_index]['INVOICE_DATE'] + '_' + rename_files_parts[group_index]['INVOICE_RECEIPT_ID'] + '_' + rename_files_parts[group_index]['PO_NUMBER'] + '.pdf'
                 with open("/tmp/"+output_filename, 'wb') as output_pdf:
                     pdf_writer.write(output_pdf)
                 with open("/tmp/"+output_filename, 'rb') as output_pdf:
@@ -53,9 +59,5 @@ def lambda_handler(event, context):
     list_1 = split_pdf_by_groups("/tmp/temp.pdf", None, groups)
     return {
         "statusCode": 200,
-        "body": json.dumps(
-            {
-                "payload": list_1
-            }
-        ),
+        "body": list_1
     }

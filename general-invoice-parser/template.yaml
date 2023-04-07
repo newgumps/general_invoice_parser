@@ -779,6 +779,20 @@ Resources:
             }
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
+
+  GenerateUploadList:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 60
+      Handler: index.handler
+      CodeUri: inline
+      Runtime: python3.8
+      InlineCode: |
+        def handler(event, context):
+            return {
+                'statusCode': 200,
+                'body': 'Hello from the zip archive'
+            }
   
   SplitPDFbyGroups:
     Type: AWS::Serverless::Function

@@ -66,13 +66,6 @@ def lambda_handler(event, context):
         MetricData = [
             {
                 'MetricName': 'Emails Received',
-                'Dimensions': [
-                    {
-                        "Name": 'Sender',
-                        "Value": email_from[1]
-
-                    },
-                    ],
                 'Unit': "None",
                 'Value': 1
             }],
@@ -142,18 +135,30 @@ def lambda_handler(event, context):
                     'Value': 1
                 }],
             )
+        cloudwatch_client.put_metric_data(
+            Namespace='Gumps AP Inbox',
+            MetricData = [
+                {
+                    'MetricName': ' Attachments Stored',
+
+                    'Unit': "None",
+                    'Value': 1
+                }],
+            )
         # Save to DB    
 
         #Generate Query String
         query_attachments = f"""
             mutation MyMutation2(
                 $emailID: ID = "{email_id}", 
+                $UUID: String = "{unique_id}"
                 $obj_ref: String = {json.dumps(attachments_ref)}, 
                 $type: String = "{content_type}") {{
             createAttachment(input: 
                     {{
                         emailID: $emailID, 
                         obj_ref: $obj_ref, 
+                        UUID: $UUID,
                         type: $type
                         }}) {{
                     id
