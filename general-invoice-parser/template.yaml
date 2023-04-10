@@ -16,6 +16,9 @@ Parameters:
   NSSecrets:
     Type: String
     Default: winward-invoice-pdf-to-csv-upload-to-ns/key-secrets
+  WorkDocsAccountCredentials:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /workdocs/accounts/credentials
   NSFileCabinetIdPDFUploadFolder:
     Type: String
     Default: '838'
@@ -114,19 +117,19 @@ Resources:
     Properties: 
       DisplayName: 'Gumps Dropship PDF Error'
   
-  SuccessNotificationSNS:
+  SuccessNotificationSNS: # delete
     Type: 'AWS::SNS::Topic'
     Properties:
       DisplayName: 'Gumps Dropship PDF Success'
 
 
-  PdfFileHandle:
+  PdfFileHandle: # delete
     Type: 'AWS::S3::Bucket'
 
-  ProcessedCSVFileHandle:
+  ProcessedCSVFileHandle: # delete
     Type: 'AWS::S3::Bucket'
 
-  SNStoStepFunction:
+  SNStoStepFunction: # vital 
     Type: AWS::Serverless::Function 
     Properties:
       Timeout: 20
@@ -148,7 +151,7 @@ Resources:
       DockerContext: ./SNStoStepFunction
       DockerTag: python3.8-v1
 
-  ExtractAttachmentsFromEmail:
+  ExtractAttachmentsFromEmail: # vital
     Type: AWS::Serverless::Function 
     Properties:
       Timeout: 20
@@ -160,7 +163,6 @@ Resources:
           BUCKET : !Ref ReceivedEmailStorage
           SAVE_PDF_PREFIX: !Ref PDFPrefix
           ERROR_NOTIFICATION_ARN: !Ref ErrorNotificationSNS
-          CSV_SQS_QUEUE: !Ref PDFSplitQueueSQS
       Events:
         SNSEvent:
           Type: SNS
@@ -174,8 +176,7 @@ Resources:
             BucketName: !Ref ReceivedEmailStorage
         - SNSCrudPolicy:
             TopicName: !GetAtt ErrorNotificationSNS.TopicName
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt PDFSplitQueueSQS.QueueName
+
       EventInvokeConfig:
         DestinationConfig:
           OnFailure:
@@ -185,32 +186,6 @@ Resources:
       Dockerfile: Dockerfile
       DockerContext: ./EmailToPdf
       DockerTag: python3.8-v1
-  
-  PDFSplitQueueSQS: 
-    Type: AWS::SQS::Queue
-    Properties: 
-      FifoQueue: True
-      VisibilityTimeout: 120
-      RedrivePolicy: 
-        deadLetterTargetArn: !GetAtt PDFDeadLetterQueueSQS.Arn
-        maxReceiveCount: 3
-      ContentBasedDeduplication: True
-      
-  
-  PDFDeadLetterQueueSQS: 
-    Type: AWS::SQS::Queue
-    Properties:
-      FifoQueue: True
-
-  CSVCompileQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt CSVDeadLetterQueueSQS.Arn
-        maxReceiveCount: 3
-  
-  CSVDeadLetterQueueSQS:
-    Type: AWS::SQS::Queue
 
   ErrorStorageBucket:
     Type: 'AWS::S3::Bucket'
@@ -249,8 +224,7 @@ Resources:
             BucketName: !Ref PdfFileHandle
         - S3CrudPolicy:
             BucketName: !Ref ProcessedCSVFileHandle
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt CSVCompileQueue.QueueName
+
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt ErrorNotificationSNS.TopicName
         - {
@@ -276,7 +250,6 @@ Resources:
           PROCESSED_CSV_FILE_HANDLE_BUCKET: !Ref ProcessedCSVFileHandle
           NSSecrets: !Ref NSSecrets
           BUCKET_NAME_ERRORS: !Ref ErrorStorageBucket
-          CSV_SQS_QUEUE: !Ref CSVCompileQueue
           ERROR_NOTIFICATION_ARN: !Ref ErrorNotificationSNS
           UPLOAD_PDF_FOLDER_INTERNAL_ID: !Ref NSFileCabinetIdPDFUploadFolder
           UPLOAD_CSV_FOLDER_INTERNAL_ID: !Ref NSFileCabinetIdCSVUploadFolder
@@ -313,7 +286,6 @@ Resources:
       Environment:
         Variables:
           NSSecrets: !Ref NSSecrets
-          CSV_SQS_QUEUE: !Ref CSVCompileQueue
           SUCCESS_SNS_TOPIC: !Ref SuccessNotificationSNS
           UPLOAD_PDF_FOLDER_INTERNAL_ID: !Ref NSFileCabinetIdPDFUploadFolder
           UPLOAD_CSV_FOLDER_INTERNAL_ID: !Ref NSFileCabinetIdCSVUploadFolder
@@ -321,13 +293,7 @@ Resources:
       PackageType: Image
       Architectures:
         - arm64
-      Events:
-        SQSEvent:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt CSVCompileQueue.Arn
-            BatchSize: 45
-            MaximumBatchingWindowInSeconds: 300
+
 
     Metadata:
       Dockerfile: Dockerfile
@@ -462,58 +428,231 @@ Resources:
       DockerContext: ./process_with_textract
       DockerTag: python3.8-v1
 
-  CheckWorkDocsFolders:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.8
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
-    
-  CreateNewWorkDocsFolder:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.8
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
-
   CheckFoldersInWorkDocs:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.9
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
-      Layers:
-        - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
+        Handler: index.handler
+        CodeUri: inline
+        Runtime: python3.8
+        Layers:
+          - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
+        Environment:
+          Variables:
+            WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+        InlineCode: |
+          import requests
+          import boto3
+          import os
+
+          # Get Credentials
+          WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+
+          SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
+          ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
+          parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
+          accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
+          endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+
+          def query_graphql_ap_inbox_db(accessToken, endpoint, query):
+              # establish a session with requests session
+              session = requests.Session()
+              # As found in AWS Appsync under Settings for your endpoint.
+              APPSYNC_API_ENDPOINT_URL = endpoint
+              # Now we can simply post the request...
+              response = session.request(
+                  url=APPSYNC_API_ENDPOINT_URL,
+                  method='POST',
+                  headers={'x-api-key': accessToken},
+                  json={'query': query}
+              )
+              return response.json()
+              
+          def handler(event, context):
+              # Check for match with vendor names domains
+              email_domain = event['extract_pdf_attachments']['OriginalSender']
+              graphql_query = f"""
+                  query MyQuery {{
+                  listVendors(limit: 1000, filter: {{known_email_domain: {{contains: "{email_domain}"}}}}) {{
+              
+              
+                      items {{
+                      id
+                      workdocs_folder_id
+                      workdocs_folder_name
+                      manual_process
+                      exclude
+                      alt_names
+                      }}
+                  }}
+                  }}
+                  """
+              response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
+              if response['data']['listVendors']['items'] != []:
+                  return {
+                      "vendors_db_id": (response['data']['listVendors']['items'][0]['id'] or None),
+                      "workdocs_folder_name": (response['data']['listVendors']['items'][0]['workdocs_folder_name'] or None),
+                      "workdocs_folder_id": (response['data']['listVendors']['items'][0]['workdocs_folder_id'] or None),
+                      "manual_process": (response['data']['listVendors']['items'][0]['manual_process'] or None),
+                      "exclude": (response['data']['listVendors']['items'][0]['exclude'] or None),
+                      "alt_names": (response['data']['listVendors']['items'][0]['alt_names'] or None),
+              
+                  }
+              else:
+                  pass
+              # Else try to match on vendor names
+              vendors_names = event['PageCompile']['PageCompile']['Vendor Names']
+              if vendors_names == None:
+                  vendors_names = "No Vendor"
+              def convert_to_dynamodb_friendly(string):
+                  """Converts any string to a DynamoDB-friendly string"""
+                  return string.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t').replace('\'', '\\\'').replace('\"', '\\"')
+              
+              
+              vendors_name_modifify = [convert_to_dynamodb_friendly(vendor) for vendor in vendors_names]
+              
+              for vendor_names in vendors_name_modifify:
+                  graphql_query = f"""
+                      query MyQuery {{
+                      listVendors(limit: 1000, filter: {{alt_names: {{contains: "{vendor_names}"}}}}) {{
+              
+              
+                          items {{
+                          id
+                          workdocs_folder_id
+                          workdocs_folder_name
+                          manual_process
+                          exclude
+                          alt_names
+                          }}
+                      }}
+                      }}
+              
+              
+              
+              
+                      """ 
+
+                  response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
+                  print(response)
+                  if "errors" in response:
+                      graphql_query = f"""
+                          query MyQuery {{
+                          listVendors(limit: 1000, filter: {{alt_names: {{contains: "{vendors_names}"}}}}) {{
+                  
+                      
+                              items {{
+                              id
+                              workdocs_folder_id
+                              workdocs_folder_name
+                              manual_process
+                              exclude
+                              alt_names
+                              }}
+                          }}
+                          }}
+                      
+                      
+                      
+                      
+                          """ 
+                      response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
+                      print(response)
+                  #if response['data']['listVendors']['items'] != []:
+                  #    break
+                  #else:
+                  #    continue
+              try:
+                  return {
+                      "vendors_db_id": (response['data']['listVendors']['items'][0]['id'] or None),
+                      "workdocs_folder_name": (response['data']['listVendors']['items'][0]['workdocs_folder_name'] or None),
+                      "workdocs_folder_id": (response['data']['listVendors']['items'][0]['workdocs_folder_id'] or None),
+                      "manual_process": (response['data']['listVendors']['items'][0]['manual_process'] or None),
+                      "exclude": (response['data']['listVendors']['items'][0]['exclude'] or None),
+                      "alt_names": (response['data']['listVendors']['items'][0]['alt_names'] or None),
+              
+                  }
+              except:
+                  return {
+                      "vendors_db_id": None,
+                      "workdocs_folder_name": "Unmatched Vendors",
+                      "workdocs_folder_id": 'b206124fa331f849b1cfc608875092c2664a3300dd0a36acf211ce7388074ca1',
+                      "manual_process": None,
+                      "exclude": None,
+                      "alt_names": None,
+              
+                  }
+
   AddToWorkDocsErrorsFolders:
     Type: AWS::Serverless::Function
     Properties:
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.9
+      Environment:
+        Variables:
+          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+      Layers:
+        - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
       InlineCode: |
+        import boto3
+        import requests
+        # Get Credentials
+        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+
+
         def handler(event, context):
+            session = boto3.Session()
+            session_workdoc_acc = boto3.Session(
+                aws_access_key_id=ACCESS_KEY,
+                aws_secret_access_key=SECRET_KEY
+            )
+            
+            workdocs_client = session_workdoc_acc.client('workdocs')
+            s3_resource = session.resource('s3')
+            BUCKET_NAME = event['extract_pdf_attachments']['attachments']['BUCKET_NAME']
+            KEY = event['extract_pdf_attachments']['attachments']['KEY']
+            s3_obj = s3_resource.Object(BUCKET_NAME, KEY)
+            s3_obj_response_body=s3_obj.get()['Body'].read()
+            s3_obj_response=s3_obj.get()
+            obj_type= 'application/pdf'
+            
+            workdocs_response = workdocs_client.initiate_document_version_upload(
+                Name=KEY,
+                ContentType=obj_type,
+                ParentFolderId=parent_folder_id
+            )
+            
+            URL=workdocs_response['UploadMetadata']['UploadUrl']
+            workdocs_upload = requests.put(URL,headers = workdocs_response['UploadMetadata']['SignedHeaders'],data=s3_obj_response_body) 
+
+            update_response = workdocs_client.update_document_version(
+                DocumentId=workdocs_response['Metadata']['Id'],
+                VersionId=workdocs_response['Metadata']['LatestVersionMetadata']['Id'],
+                VersionStatus='ACTIVE'
+            )     
+            cloudwatch_client = boto3.client('cloudwatch')
+
+            cloudwatch_client.put_metric_data(
+                Namespace='Gumps AP Inbox',
+                MetricData = [
+                    {
+                        'MetricName': 'Error folder',
+                        'Unit': "None",
+                        'Value': 1
+                    }],
+                
+                )
             return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
+                'statusCode': KEY,
+                'body': update_response
             }
+
   
   TextractResultsFunction:
     Type: AWS::Serverless::Function
@@ -521,12 +660,66 @@ Resources:
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.9
+      Policies:
+        - SNSCrudPolicy:
+            TopicName: !Ref APWaitForTextractTopic
+        - SQSPollerPolicy:
+            QueueName: !Ref APWaitTextractsQueue
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: ap-automation
+      Environment:
+        Variables:
+          SQS_URL: !Ref APWaitTextractsQueue
+      Events:
+        APWaitTextractsQueue:
+          Type: SNS
+          Properties:
+            Topic: !Ref APWaitForTextractTopic
       InlineCode: |
+        import json
+        import boto3
+        import os 
+        queue_url = os.environ['SQS_URL']
+        sqs = boto3.client('sqs')
+        textract_client = boto3.client('textract')
+        sfn = boto3.client('stepfunctions')
+
         def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
+            print(event)
+            extraction = json.loads(event['Records'][0]['Sns']['Message'])
+            JOBID = extraction['JobId']
+            STATUS = extraction['Status']
+            
+            SUCCESS_TOKEN = None
+            while SUCCESS_TOKEN is None:
+                response = sqs.receive_message(
+                    QueueUrl=queue_url,
+                    AttributeNames=['All'],
+                    MaxNumberOfMessages=10,
+                    WaitTimeSeconds=20
+                )
+                
+                for message in response['Messages']:
+                    print(message)
+                    receipt_handle = message['ReceiptHandle']
+                    message_dict = json.loads(message['Body'])
+                    if message_dict['JobID'] == JOBID:
+                        SUCCESS_TOKEN = message_dict['MyTaskToken']
+                        response = sfn.send_task_success(
+                            taskToken=SUCCESS_TOKEN,
+                            output=json.dumps({'textract_output': JOBID})
+                            )
+                        print("Send Task Success Response:", response)
+                        sqs.delete_message(
+                            QueueUrl=queue_url,
+                            ReceiptHandle=message['ReceiptHandle']
+                                )
+                            
+            if SUCCESS_TOKEN is None:
+                raise Exception("No matching JobID found in SQS queue")
+
+            return {"Status": "Success"}
+
 
   QueryJobIDFunction:
     Type: AWS::Serverless::Function
@@ -568,6 +761,7 @@ Resources:
             }
 
   PullAlertsQueue:
+
     Type: AWS::Serverless::Function
     Properties:
       Handler: index.handler
@@ -588,6 +782,7 @@ Resources:
             }
 
   ProcessTextract:
+    # Note: SNS Arn and Roles may need update. ie.Notification Channel
     Type: AWS::Serverless::Function
     Properties:
       Policies: 
@@ -595,32 +790,56 @@ Resources:
             BucketName: !Ref AttachmentsStorage
         - TextractPolicy: {}
         - CloudWatchPutMetricPolicy: {}
-        - S3CrudPolicy:
-            BucketName: !Ref PDFPagesStorage
         - SNSCrudPolicy:
-            TopicName: !GetAtt  SavePdfPagesTopic.TopicName
+            TopicName: !GetAtt  APWaitForTextractTopic.TopicName
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref APWaitForTextractTopic
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.9
       InlineCode: |
+        import boto3
+
         def handler(event, context):
+            cloudwatch_client = boto3.client('cloudwatch')
+
+            cloudwatch_client.put_metric_data(
+                Namespace='Gumps AP Inbox',
+                MetricData = [
+                    {
+                        'MetricName': 'Send to Texract',
+                        'Dimensions': [
+              
+                            ],
+                        'Unit': "None",
+                        'Value': 1
+                    }],
+                
+                )
+
+            textract_client = boto3.client('textract')
+
+            response = textract_client.start_expense_analysis(
+                DocumentLocation={
+                    'S3Object': {
+                        'Bucket': event['extract_pdf_attachments']['attachments']['BUCKET_NAME'],
+                        'Name': event['extract_pdf_attachments']['attachments']['KEY']
+                    }
+                },
+                NotificationChannel={
+                    "SNSTopicArn": "arn:aws:sns:us-east-1:570685116845:APWaitForTextractTopic",
+                    "RoleArn": "arn:aws:iam::570685116845:role/textract-sns-publish"
+                }
+            )
+
             return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
+                "job_Id": response['JobId']
             }
 
-  FilterQueue:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.9
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
+
+
+
   APAlertsQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -837,10 +1056,7 @@ Resources:
 
   CSVCompilerQueue:
     Type: AWS::SQS::Queue
-    Properties:
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt CSVDeadLetterQueueSQS.Arn
-        maxReceiveCount: 3
+
   CSVsStorage:
     Type: 'AWS::S3::Bucket'
   CSVCompilerFunction:

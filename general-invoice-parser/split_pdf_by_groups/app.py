@@ -32,13 +32,14 @@ def lambda_handler(event, context):
     def split_pdf_by_groups(input_pdf, output_prefix, page_groups):
         list_of_files_upload_to_s3 = []
         with open(input_pdf, 'rb') as pdf_file:
-            pdf_reader = PyPDF2.PdfFileReader(pdf_file)
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
 
             for group_index, group in enumerate(page_groups):
-                pdf_writer = PyPDF2.PdfFileWriter()
+                pdf_writer = PyPDF2.PdfWriter()
 
                 for page_num in group:
-                    pdf_writer.addPage(pdf_reader.getPage(int(page_num) - 1))
+                    print(page_num)
+                    pdf_writer.add_page(pdf_reader.pages[(int(page_num) - 1)])
                 
                 if rename_files_parts[group_index]['INVOICE_RECEIPT_ID'] == None:
                     rename_files_parts[group_index]['INVOICE_RECEIPT_ID'] = ''
@@ -46,12 +47,16 @@ def lambda_handler(event, context):
                     rename_files_parts[group_index]['PO_NUMBER'] = ''
                 
                 output_filename = (rename_files_parts[group_index]['INVOICE_DATE'] + "_" ) + rename_files_parts[group_index]['INVOICE_RECEIPT_ID'].replace('/','') +  '_' +rename_files_parts[group_index]['PO_NUMBER'] + '.pdf'
-
+                output_filename = output_filename.replace(' ', '')
                 with open("/tmp/"+output_filename, 'wb') as output_pdf:
                     pdf_writer.write(output_pdf)
                 with open("/tmp/"+output_filename, 'rb') as output_pdf:
                     s3.upload_fileobj(output_pdf, BUCKET_NAME, output_filename)
-                list_of_files_upload_to_s3.append({'BUCKET_NAME': BUCKET_NAME, 'KEY': output_filename})
+                list_of_files_upload_to_s3.append({'BUCKET_NAME': BUCKET_NAME, 
+                                                    'KEY': output_filename,
+                                                    'PO_NUMBER': rename_files_parts[group_index]['PO_NUMBER'],
+                                                    'INVOICE_RECEIPT_ID': rename_files_parts[group_index]['INVOICE_RECEIPT_ID'],
+                                                    'PAGE_ID': rename_files_parts[group_index]['PAGE_ID'],})
                 print(group_index)
                 print(f"Created: {output_filename}")
 
