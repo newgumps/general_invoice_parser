@@ -361,73 +361,6 @@ Resources:
   PDFPagesStorage:
     Type: 'AWS::S3::Bucket'
     
-  SplitPdfFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Environment:
-        Variables:
-          TOPIC_ARN: !Ref SavePdfPagesTopic
-          PDF_PAGES_BUCKET: !Ref PDFPagesStorage
-      Policies: 
-        - AWSLambdaDynamoDBExecutionRole
-        - SNSCrudPolicy:
-            TopicName: !GetAtt  SavePdfPagesTopic.TopicName
-        - S3CrudPolicy:
-            BucketName: !Ref AttachmentsStorage
-        - S3CrudPolicy:
-            BucketName: !Ref PDFPagesStorage
-        - LambdaInvokePolicy:
-            FunctionName: !Ref ProcessWithTextractFunction
-      Timeout: 30
-      Events:
-        Stream:
-          Type: DynamoDB
-          Properties:
-            Stream: !Ref AttachmentsDDBStreams
-            BatchSize: 1
-            StartingPosition: LATEST
-            FilterCriteria:
-              Filters:
-                - Pattern: '{ "dynamodb": { "NewImage": { "type": { "S": ["application/pdf"] } } } }'
-      PackageType: Image
-      Architectures:
-        - arm64
-    Metadata:
-      Dockerfile: Dockerfile
-      DockerContext: ./split_pdf
-      DockerTag: python3.8-v1
-
-  SavePdfPagesTopic:
-    Type: AWS::SNS::Topic
-  ProcessWithTextractFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Timeout: 15
-      Events:
-        SNSEvent:
-          Type: SNS
-          Properties:
-            Topic: !Ref SavePdfPagesTopic
-      Environment:
-        Variables:
-          TOPIC_ARN: !Ref SavePdfPagesTopic
-      Policies: 
-        - S3CrudPolicy:
-            BucketName: !Ref AttachmentsStorage
-        - TextractPolicy: {}
-        - CloudWatchPutMetricPolicy: {}
-        - S3CrudPolicy:
-            BucketName: !Ref PDFPagesStorage
-        - SNSCrudPolicy:
-            TopicName: !GetAtt  SavePdfPagesTopic.TopicName
-      PackageType: Image
-      Architectures:
-        - arm64
-    Metadata:
-      Dockerfile: Dockerfile
-      DockerContext: ./process_with_textract
-      DockerTag: python3.8-v1
-
   CheckFoldersInWorkDocs:
     Type: AWS::Serverless::Function
     Properties:
@@ -449,7 +382,6 @@ Resources:
 
           SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
           ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-          parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
           accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
           endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
 
@@ -588,6 +520,7 @@ Resources:
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.9
+      Timeout: 30
       Environment:
         Variables:
           WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
@@ -921,6 +854,7 @@ Resources:
       InlineCode: |
         import mimetypes
         import boto3
+        import json
         import requests
         import os
         # Get Credentials
@@ -1190,6 +1124,7 @@ Resources:
         import requests
         import boto3
         import os
+        import json
         # Get Credentials
         WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
 
@@ -1199,10 +1134,7 @@ Resources:
         accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
         endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
         parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
-        
-        accessToken = "da2-kar2jm52tja5tcggis7sapyu7a"
-        endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
-
+ 
         def query_graphql_ap_inbox_db(accessToken, endpoint, query):
             # establish a session with requests session
             session = requests.Session()
@@ -1265,19 +1197,6 @@ Resources:
 
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
-  
-  AddToWorkDocsManualReviewFolders:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.9
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
 
   AddToWorkDocs:
     Type: AWS::Serverless::Function
@@ -1285,12 +1204,95 @@ Resources:
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.8
+      Timeout: 12
+      Policies:
+          - TextractPolicy: {}
+          - S3CrudPolicy:
+              BucketName: !Ref AttachmentsStorage
+          - CloudWatchPutMetricPolicy: {}
+      Environment:
+        Variables:
+          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
       InlineCode: |
+        import requests
+        import boto3
+        import json
+        import os
+        # Get Credentials
+        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+        parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
+ 
         def handler(event, context):
+            session = boto3.Session()
+            session_workdoc_acc = boto3.Session(
+                aws_access_key_id=ACCESS_KEY,
+                aws_secret_access_key=SECRET_KEY
+            )
+            
+            workdocs_client = session_workdoc_acc.client('workdocs')
+            s3_resource = session.resource('s3')
+            KEY = event['KEY']
+            BUCKET_NAME = event['BUCKET_NAME']
+            rename_files = event['KEY']
+            s3_obj = s3_resource.Object(BUCKET_NAME, KEY)
+            s3_obj_response_body=s3_obj.get()['Body'].read()
+            s3_obj_response=s3_obj.get()
+            folder_id = event['workdocs_folder_id']
+            if folder_id == 'b206124fa331f849b1cfc608875092c2664a3300dd0a36acf211ce7388074ca1':
+                cloudwatch_client = boto3.client('cloudwatch')
+
+                cloudwatch_client.put_metric_data(
+                    Namespace='Gumps AP Inbox',
+                    MetricData = [
+                        {
+                            'MetricName': 'Unmatched Vendors',
+                            'Unit': "None",
+                            'Value': 1
+                        }],
+                    
+                    )
+            else:
+                cloudwatch_client = boto3.client('cloudwatch')
+
+                cloudwatch_client.put_metric_data(
+                    Namespace='Gumps AP Inbox',
+                    MetricData = [
+                        {
+                            'MetricName': 'Matched Vendors',
+                            'Unit': "None",
+                            'Value': 1
+                        }],
+                    
+                    )
+            obj_type= 'application/pdf'
+
+                
+            workdocs_response = workdocs_client.initiate_document_version_upload(
+                Name=rename_files,
+                ContentType=obj_type,
+                ParentFolderId=folder_id
+            )
+            
+            URL=workdocs_response['UploadMetadata']['UploadUrl']
+            workdocs_upload = requests.put(URL,headers = workdocs_response['UploadMetadata']['SignedHeaders'],data=s3_obj_response_body) 
+
+            update_response = workdocs_client.update_document_version(
+                DocumentId=workdocs_response['Metadata']['Id'],
+                VersionId=workdocs_response['Metadata']['LatestVersionMetadata']['Id'],
+                VersionStatus='ACTIVE'
+            )
+
             return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
+                's3_key': KEY,
+                'uploaded_file_name' : rename_files,
+                'body': update_response
             }
+
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
 
@@ -1303,10 +1305,19 @@ Resources:
       Runtime: python3.8
       InlineCode: |
         def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
+            workdocs_folder_id = event['FolderStatus']['FolderStatus']['workdocs_folder_id']
+            receipts = event['SplitPdfInvoice']['SplitPdfInvoice']['body']
+            list_of_processed_receipts = event['SplitPdfInvoice']['SplitPdfInvoice']['body']
+            uuid = event['extract_pdf_attachments']['UUID']
+            for idx, receipt in enumerate(receipts):
+                list_of_processed_receipts[idx]['workdocs_folder_id'] = workdocs_folder_id
+                if receipt['INVOICE_RECEIPT_ID'] == receipt['PAGE_ID'] or receipt['PO_NUMBER'] == receipt['PAGE_ID']:
+                    list_of_processed_receipts[idx]['NS_PASS'] = False
+                else:
+                    list_of_processed_receipts[idx]['NS_PASS'] = True
+            
+            list_of_processed_receipts
+            return list_of_processed_receipts
   
   SplitPDFbyGroups:
     Type: AWS::Serverless::Function
