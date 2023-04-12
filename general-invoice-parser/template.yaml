@@ -443,7 +443,7 @@ Resources:
           import requests
           import boto3
           import os
-
+          import json
           # Get Credentials
           WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
 
@@ -596,6 +596,7 @@ Resources:
       InlineCode: |
         import boto3
         import requests
+        import json
         # Get Credentials
         WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
 
@@ -721,44 +722,81 @@ Resources:
             return {"Status": "Success"}
 
 
-  QueryJobIDFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.9
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
   SplitPagesTextractFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.9
+      Timeout: 30
+      Policies:
+        - TextractPolicy: {}
+      Environment:
+        Variables:
+          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+      Layers:
+        - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
       InlineCode: |
+        import boto3
+        import requests
+        import json
+        import os
+        def query_graphql_ap_inbox_db(accessToken, endpoint, query):
+            # establish a session with requests session
+            session = requests.Session()
+            # As found in AWS Appsync under Settings for your endpoint.
+            APPSYNC_API_ENDPOINT_URL = endpoint
+            # Now we can simply post the request...
+            response = session.request(
+                url=APPSYNC_API_ENDPOINT_URL,
+                method='POST',
+                headers={'x-api-key': accessToken},
+                json={'query': query}
+            )
+            return response.json()
+        # Get Credentials
+        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+    
         def handler(event, context):
+            JOBID = event['TextractResults']['textract_output']
+            textract_client = boto3.client('textract')
+            
+            response = textract_client.get_expense_analysis(
+                MaxResults= 20,
+                JobId= JOBID)
+            
+            NUMOFPAGES = response['DocumentMetadata']['Pages']
+            
+            LISTOFPAGES = [pages['SummaryFields'] for pages in response['ExpenseDocuments']]
+            
+            ATTACHMENT_ID = event['extract_pdf_attachments']['attachments']['AttachmentId']
+            
+            LISTOFPAGESID = []
+            for num, pages in enumerate(LISTOFPAGES):
+                graphql_query = f"""
+                    mutation MyMutation {{
+                createPage(input: {{attachmentID: "{ATTACHMENT_ID}", textract_result: {json.dumps(json.dumps(pages))}, page_num: {str(num+1)}}}) {{
+                    id
+                }}
+                }}
+            
+                    """
+                response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
+                print(response)
+                LISTOFPAGESID.append(response['data']['createPage'])
+            
+
             return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
+                'List of Pages': LISTOFPAGESID
             }
 
 
-  ReturnTextractOutcomesFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.9
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
 
   PullAlertsQueue:
 
@@ -861,57 +899,121 @@ Resources:
     Properties:
       TopicName: APAlertsTopic
 
-  GenerateAlertsDocs:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.9
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
-
-  UploadAlertsDocsToWorkDocs:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.9
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
-
-  AddToWorkDocsMissingVendorsFolders:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.9
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-            }
 
   AddToWorkDocsNonPDFFolders:
+    # make sure parent folders id correspond to the correct folder in workdocs
     Type: AWS::Serverless::Function
     Properties:
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.9
+      Timeout: 30
+      Policies:
+        - TextractPolicy: {}
+        - S3CrudPolicy:
+            BucketName: !Ref AttachmentsStorage
+        - CloudWatchPutMetricPolicy: {}
+      Environment:
+        Variables:
+          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+      Layers:
+        - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
       InlineCode: |
+        import mimetypes
+        import boto3
+        import requests
+        import os
+        # Get Credentials
+        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+        parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
+
         def handler(event, context):
+            session = boto3.Session()
+            session_workdoc_acc = boto3.Session(
+                aws_access_key_id=ACCESS_KEY,
+                aws_secret_access_key=SECRET_KEY
+            )
+            
+            workdocs_client = session_workdoc_acc.client('workdocs')
+            s3_resource = session.resource('s3')
+            BUCKET_NAME = event['extract_pdf_attachments']['attachments']['BUCKET_NAME']
+            KEY = event['extract_pdf_attachments']['attachments']['KEY']
+            print(KEY)
+                
+            mime_type, encoding = mimetypes.guess_type(KEY)
+            if KEY.split('.')[-1] == 'xlsx':
+                mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            print(mime_type)
+            if mime_type == None:
+                mime_type = 'application/octet-stream'
+            if mime_type in ['image/jpeg', 'image/png']:
+                cloudwatch_client = boto3.client('cloudwatch')
+
+                cloudwatch_client.put_metric_data(
+                    Namespace='Gumps AP Inbox',
+                    MetricData = [
+                        {
+                            'MetricName': 'Non Pdf (img)',
+                            'Unit': "None",
+                            'Value': 1
+                        }],
+                    
+                    )
+                return {
+                    'statusCode': 'Unsaved Mimetype',
+                    'body': KEY + " is not saved in workdocs."}
+            cloudwatch_client = boto3.client('cloudwatch')
+
+            cloudwatch_client.put_metric_data(
+                Namespace='Gumps AP Inbox',
+                MetricData = [
+                    {
+                        'MetricName': 'Pdf Save',
+                        'Unit': "None",
+                        'Value': 1
+                    }],
+                
+                )
+            s3_obj = s3_resource.Object(BUCKET_NAME, KEY)
+            s3_obj_response_body=s3_obj.get()['Body'].read()
+            s3_obj_response=s3_obj.get()
+            workdocs_response = workdocs_client.initiate_document_version_upload(
+                Name=KEY,
+                ContentType=mime_type,
+                ParentFolderId=parent_folder_id
+            )
+            
+            URL=workdocs_response['UploadMetadata']['UploadUrl']
+            workdocs_upload = requests.put(URL,headers = workdocs_response['UploadMetadata']['SignedHeaders'],data=s3_obj_response_body) 
+
+            update_response = workdocs_client.update_document_version(
+                DocumentId=workdocs_response['Metadata']['Id'],
+                VersionId=workdocs_response['Metadata']['LatestVersionMetadata']['Id'],
+                VersionStatus='ACTIVE'
+            )     
+            cloudwatch_client = boto3.client('cloudwatch')
+
+            cloudwatch_client.put_metric_data(
+                Namespace='Gumps AP Inbox',
+                MetricData = [
+                    {
+                        'MetricName': 'Non Pdf Saved',
+                        'Unit': "None",
+                        'Value': 1
+                    }],
+                
+                )
             return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
+                'statusCode': KEY,
+                'body': update_response
             }
+
 
   FileRenamingFunction:
     Type: AWS::Serverless::Function
@@ -919,12 +1021,79 @@ Resources:
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.9
+      Policies: 
+        - CloudWatchPutMetricPolicy: {}
+      Timeout: 9
       InlineCode: |
+        import datetime
+        from dateutil.parser import parse
+        import boto3
         def handler(event, context):
+            list_of_invoices = []
+            for page_list in event['PageCompile']['PageCompile']['Groups of Commons']:
+                print(page_list)
+                INVOICE_RECEIPT_ID = None
+                PO_NUMBER = None
+                INVOICE_RECEIPT_ID = None
+                INVOICE_DATE = None
+                PAGE_LIST = page_list
+                for page in page_list:
+                    
+                    try:
+                        INVOICE_RECEIPT_ID = event['PagesProcess'][int(page)-1]["ExtractInvoiceFromPages"]["ExtractInvoiceFromPages"]["Extracted"]["INVOICE_RECEIPT_ID"][0]["Text"]
+                        print(INVOICE_RECEIPT_ID)
+                        cloudwatch_client = boto3.client('cloudwatch')
+            
+                        cloudwatch_client.put_metric_data(
+                            Namespace='Gumps AP Inbox',
+                            MetricData = [
+                                {
+                                    'MetricName': 'Invoice Id Found',
+                                    'Unit': "None",
+                                    'Value': 1
+                                }],
+                            
+                            )
+                    except:
+                        INVOICE_RECEIPT_ID = None
+                    try:
+                        PO_NUMBER = event['PagesProcess'][int(page)-1]["ExtractInvoiceFromPages"]["ExtractInvoiceFromPages"]["Extracted"]["PO_NUMBER"][0]["Text"] 
+                    except:
+                        PO_NUMBER = None
+                    try:
+                        INVOICE_DATE = event['PagesProcess'][int(page)-1]["ExtractInvoiceFromPages"]["ExtractInvoiceFromPages"]["Extracted"]["INVOICE_RECEIPT_DATE"][0]["Text"]
+                    except:
+                        INVOICE_DATE = None
+                    try:
+                        parsed_date = parse(INVOICE_DATE)
+                    except:
+                        parsed_date = datetime.date.today()
+                    INVOICE_DATE = parsed_date.strftime('%Y%m%d')
+                    print("INVOICE_RECEIPT_ID", INVOICE_RECEIPT_ID)
+        
+                    
+
+                    if INVOICE_RECEIPT_ID == None and PO_NUMBER == None:
+                        INVOICE_RECEIPT_ID = event['PagesProcess'][int(page)-1]["ExtractInvoiceFromPages"]["ExtractInvoiceFromPages"]["Extracted"]["PAGE_ID"]
+                        PO_NUMBER = None
+                    
+                    elif INVOICE_RECEIPT_ID == None:
+                        INVOICE_RECEIPT_ID =  event['PagesProcess'][int(page)-1]["ExtractInvoiceFromPages"]["ExtractInvoiceFromPages"]["Extracted"]["PAGE_ID"]
+                    elif PO_NUMBER == None:
+                        PO_NUMBER =  event['PagesProcess'][int(page)-1]["ExtractInvoiceFromPages"]["ExtractInvoiceFromPages"]["Extracted"]["PAGE_ID"]
+                        
+                    PAGE_ID = event['PagesProcess'][int(page)-1]["ExtractInvoiceFromPages"]["ExtractInvoiceFromPages"]["Extracted"]["PAGE_ID"]
+                
+                    list_of_invoices.append({"INVOICE_RECEIPT_ID": INVOICE_RECEIPT_ID, "PO_NUMBER": PO_NUMBER, "INVOICE_DATE": INVOICE_DATE, "PAGE_LIST": PAGE_LIST, "PAGE_ID": PAGE_ID})
+                    
+                    
+            
+            
+            
             return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
+                're_name_file_name': list_of_invoices
             }
+
 
   PageCompile:
     Type: AWS::Serverless::Function
@@ -932,29 +1101,76 @@ Resources:
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.9
+      Timeout: 9
+
       InlineCode: |
+        import boto3
         def handler(event, context):
+            unprocessed_pages = {}
+            grouped_data = {}
+            
+            for processed_page in event['PagesProcess']:
+                cloudwatch_client = boto3.client('cloudwatch')
+
+                cloudwatch_client.put_metric_data(
+                    Namespace='Gumps AP Inbox',
+                    MetricData = [
+                        {
+                            'MetricName': 'Page Found',
+                            'Unit': "None",
+                            'Value': 1
+                        }],
+                    
+                    )
+                PAGENUMSTR = str(processed_page['ExtractInvoiceFromPages']['ExtractInvoiceFromPages']['Extracted']['PAGE_NUM'])
+                try:
+                    invoice_receipt_id = processed_page['ExtractInvoiceFromPages']['ExtractInvoiceFromPages']['Extracted']['INVOICE_RECEIPT_ID'][0]['Text']
+                except:
+                    invoice_receipt_id = 'Not Found'
+                    
+                unprocessed_pages[PAGENUMSTR] = invoice_receipt_id
+                
+                if invoice_receipt_id in grouped_data:
+                    grouped_data[invoice_receipt_id].append(PAGENUMSTR)
+                else:
+                    grouped_data[invoice_receipt_id] = [PAGENUMSTR]
+            
+            # Convert the dictionary to a list of lists
+            result = [grouped_data[value] for value in grouped_data]
+            
+            for num, group in enumerate(result):
+                # check if group is a no vendor id.
+                if unprocessed_pages[group[0]] == 'Not Found':
+                    if num == 0:
+                        try:
+                            result[num+1].extend(group)
+                            del result[num]
+                        except:
+                            pass
+                    else:
+                        result[num-1].extend(group)
+                        del result[num]
+            for inner_list in result:
+                inner_list.sort()
+            pages_process = event['PagesProcess']
+            vendor_names = []
+            for page in pages_process:
+                extracted_data = page["ExtractInvoiceFromPages"]["ExtractInvoiceFromPages"]["Extracted"]
+                vendor_name_list = extracted_data["VENDOR_NAME"]
+                
+                for vendor in vendor_name_list:
+                    vendor_name = vendor["Text"]
+                    
+                    if vendor_name not in vendor_names:
+                        vendor_names.append(vendor_name)
+            
+            print(vendor_names)
             return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
+                "Groups of Commons":result,
+                "Vendor Names":vendor_names
+                
             }
 
-  AddToWorkDocsNoVendorsFolders:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      CodeUri: inline
-      Runtime: python3.9
-      Timeout: 9
-      InlineCode: |
-        def handler(event, context):
-            return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
-                }
-      Layers:
-        - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
-    
   TextractExtractFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -962,12 +1178,91 @@ Resources:
       CodeUri: inline
       Runtime: python3.9
       Timeout: 9
+      Policies:
+          - TextractPolicy: {}
+          - S3CrudPolicy:
+              BucketName: !Ref AttachmentsStorage
+          - CloudWatchPutMetricPolicy: {}
+      Environment:
+        Variables:
+          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
       InlineCode: |
+        import requests
+        import boto3
+        import os
+        # Get Credentials
+        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+        parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
+        
+        accessToken = "da2-kar2jm52tja5tcggis7sapyu7a"
+        endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
+
+        def query_graphql_ap_inbox_db(accessToken, endpoint, query):
+            # establish a session with requests session
+            session = requests.Session()
+            # As found in AWS Appsync under Settings for your endpoint.
+            APPSYNC_API_ENDPOINT_URL = endpoint
+            # Now we can simply post the request...
+            response = session.request(
+                url=APPSYNC_API_ENDPOINT_URL,
+                method='POST',
+                headers={'x-api-key': accessToken},
+                json={'query': query}
+            )
+            return response.json()
         def handler(event, context):
+            print(event)
+            PAGE_ID = event['id']
+            
+            graphql_query = f"""
+                query MyQuery {{
+                getPage(id: "{PAGE_ID}") {{
+                    textract_result
+                    page_num
+                    attachmentID
+                }}
+                }}
+            
+            
+                """
+            response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
+            
+            TEXTRACTOUTPUTS = eval(response['data']['getPage']['textract_result'])
+            PAGE_NUM = response['data']['getPage']['page_num']
+            ATTACHMENTS_ID = response['data']['getPage']['attachmentID']
+
+            list_of_fields = [
+                'INVOICE_RECEIPT_ID',
+                'INVOICE_RECEIPT_DATE',
+                'PO_NUMBER',
+                'VENDOR_NAME'
+            ]
+            
+            
+            key_fields_value = {}
+            for field in list_of_fields:
+                key_fields_value[field] = []
+            for fields in TEXTRACTOUTPUTS:
+                if fields['Type']['Text'] in list_of_fields:
+                        key_fields_value[fields['Type']['Text']].append({
+                            'Text': fields['ValueDetection']['Text'],
+                            'Confidence': fields['Type']['Confidence']
+                        }  
+                        )
+            
+            key_fields_value['PAGE_NUM'] = PAGE_NUM
+            key_fields_value['ATTACHMENTS_ID'] = ATTACHMENTS_ID
+            key_fields_value['PAGE_ID'] = PAGE_ID
             return {
-                'statusCode': 200,
-                'body': 'Hello from the zip archive'
+                    "Extracted": key_fields_value
                 }
+
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
   
