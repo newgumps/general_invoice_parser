@@ -2,9 +2,9 @@ version = 0.1
 [default]
 [default.deploy]
 [default.deploy.parameters]
-stack_name = "gumps-ap-inbox-automation"
+stack_name = "ap-inbox-test"
 s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-106au7cn3zwxv"
-s3_prefix = "gumps-ap-inbox-automation"
+s3_prefix = "ap-inbox-test"
 region = "us-east-1"
 capabilities = "CAPABILITY_IAM"
 parameter_overrides = "EmailPrefix=\"Received\" PDFPrefix=\"PDF\" NSSecrets=\"winward-invoice-pdf-to-csv-upload-to-ns/key-secrets\" WorkDocsAccountCredentials=\"/workdocs/accounts/credentials\" NSFileCabinetIdPDFUploadFolder=\"838\" NSFileCabinetIdCSVUploadFolder=\"634\" NSSandboxProductionMode=\"PRODUCTION\" GumpsLoggingDDB=\"GumpsStacksLog\" PreProcessingBucket=\"preprocessing-bucket-to-be-parsed\" AttachmentsDDBStreams=\"arn:aws:dynamodb:us-east-1:570685116845:table/Attachment-iumxb4tvivfkpokn5l7ot2wd64-staging/stream/2022-12-14T17:42:52.072\" PagesDDBStreams=\"arn:aws:dynamodb:us-east-1:570685116845:table/Page-iumxb4tvivfkpokn5l7ot2wd64-staging/stream/2022-12-14T17:42:51.302\" APStateMachine=\"arn:aws:states:us-east-1:570685116845:stateMachine:ap-automation\""

@@ -141,7 +141,8 @@ Resources:
         - SNSCrudPolicy:
             TopicName: !GetAtt SavedInS3Notification.TopicName
         - StepFunctionsExecutionPolicy:
-            StateMachineName: ap-automation
+            StateMachineName: ap-inbox-automation-text
+
 
       Environment:
         Variables: 
@@ -814,23 +815,23 @@ Resources:
   APAlertsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: APAlertsQueue
+      QueueName: APAlertsQueueTest
 
   APWaitTextractsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: APWaitTextractsQueue
+      QueueName: APWaitTextractsQueueTest
 
   APWaitForTextractTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: APWaitForTextractTopic
+      TopicName: APWaitForTextractTopicTest
 
 
   APAlertsTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: APAlertsTopic
+      TopicName: APAlertsTopicTest
 
 
   AddToWorkDocsNonPDFFolders:
