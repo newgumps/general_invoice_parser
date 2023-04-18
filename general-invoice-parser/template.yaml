@@ -45,7 +45,7 @@ Parameters:
 
   APStateMachine:
     Type: String
-    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-automation
+    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-inbox-automation-text
 Resources:
 
   ReceivedEmailStorage:
@@ -143,7 +143,11 @@ Resources:
         - StepFunctionsExecutionPolicy:
             StateMachineName: ap-inbox-automation-text
 
-
+      Events:
+        SNSEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref SavedInS3Notification
       Environment:
         Variables: 
           STATE_MACHINE_ARN: !Ref APStateMachine
@@ -1037,7 +1041,8 @@ Resources:
       CodeUri: inline
       Runtime: python3.9
       Timeout: 9
-
+      Policies:
+        - CloudWatchPutMetricPolicy: {}
       InlineCode: |
         import boto3
         def handler(event, context):
@@ -1324,6 +1329,11 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Timeout: 60
+      Policies: 
+        - S3CrudPolicy:
+            BucketName: !Ref PDFPagesStorage
+        - S3CrudPolicy:
+            BucketName: !Ref AttachmentsStorage
       PackageType: Image
       Architectures:
         - arm64
