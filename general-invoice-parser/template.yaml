@@ -183,75 +183,7 @@ Resources:
 
   ErrorStorageBucket:
     Type: 'AWS::S3::Bucket'
-  ParsePDFFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
-    Properties:
-      Timeout: 80
-      PackageType: Image
-      Architectures:
-        - "arm64"
-
-      Policies:
-        - {
-        
-            "Statement": [
-            {
-                "Effect": "Allow",
-                "Action": [
-                  "textract:*"
-                ],
-                "Resource": "*"
-              }
-            ]
-          }
-        - DynamoDBCrudPolicy:
-            TableName: "general-invoice-data"
-        - DynamoDBWritePolicy:
-            TableName: !Ref GumpsLoggingDDB
-        - S3CrudPolicy:
-            BucketName: !Ref ReceivedEmailStorage
-        - S3CrudPolicy:
-            BucketName: !Ref ErrorStorageBucket
-        - S3CrudPolicy:
-            BucketName: !Ref PreProcessingBucket
-        - S3CrudPolicy:
-            BucketName: !Ref PdfFileHandle
-        - S3CrudPolicy:
-            BucketName: !Ref ProcessedCSVFileHandle
-
-        - SNSPublishMessagePolicy:
-            TopicName: !GetAtt ErrorNotificationSNS.TopicName
-        - {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                            "Sid": "VisualEditor0",
-                            "Effect": "Allow",
-                            "Action": [
-                                "ssm:DescribeParameters",
-                                "ssm:GetParametersByPath",
-                                "ssm:GetParameters",
-                                "ssm:GetParameter"
-                            ],
-                            "Resource": "*"
-                        }
-                    ]
-            }
-
-      Environment:
-        Variables:
-          PDF_FILE_HANDLE_BUCKET: !Ref PdfFileHandle
-          PROCESSED_CSV_FILE_HANDLE_BUCKET: !Ref ProcessedCSVFileHandle
-          NSSecrets: !Ref NSSecrets
-          BUCKET_NAME_ERRORS: !Ref ErrorStorageBucket
-          ERROR_NOTIFICATION_ARN: !Ref ErrorNotificationSNS
-          UPLOAD_PDF_FOLDER_INTERNAL_ID: !Ref NSFileCabinetIdPDFUploadFolder
-          UPLOAD_CSV_FOLDER_INTERNAL_ID: !Ref NSFileCabinetIdCSVUploadFolder
-          NSSandboxProductionMode: !Ref NSSandboxProductionMode
-    Metadata:
-      Dockerfile: Dockerfile
-      DockerContext: ./PdfParser
-      DockerTag: python3.8-v1      
+    
   
   CsvCompileFunction:
     Type: AWS::Serverless::Function
