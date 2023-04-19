@@ -47,6 +47,34 @@ Parameters:
     Type: String
     Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-inbox-automation-text
 Resources:
+  RoleForStateMachine:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Join [ '-', [ !Ref 'AWS::StackName', 'StateMachinePolicy' ] ]
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:*
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sqs:*
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource: '*'
+
 
   ReceivedEmailStorage:
     Type: 'AWS::S3::Bucket'
@@ -599,13 +627,22 @@ Resources:
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.9
+      Timeout: 30
       Policies:
         - SNSCrudPolicy:
             TopicName: !Ref APWaitForTextractTopic
         - SQSPollerPolicy:
-            QueueName: !Ref APWaitTextractsQueue
-        - StepFunctionsExecutionPolicy:
-            StateMachineName: ap-automation
+            QueueName: !GetAtt APWaitTextractsQueue.QueueName
+        - {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Effect": "Allow",
+                      "Action": "states:*",
+                      "Resource": "*"
+                  }
+              ]
+          }
       Environment:
         Variables:
           SQS_URL: !Ref APWaitTextractsQueue
@@ -757,6 +794,7 @@ Resources:
                 'body': 'Hello from the zip archive'
             }
 
+
   ProcessTextract:
     # Note: SNS Arn and Roles may need update. ie.Notification Channel
     Type: AWS::Serverless::Function
@@ -778,7 +816,7 @@ Resources:
         import os
         import boto3
 
-        AP_WAIT_FOR_TEXTRACT_ARN = json.loads(os.environ['SNS_TOPIC_ARN'])
+        AP_WAIT_FOR_TEXTRACT_ARN = os.environ['SNS_TOPIC_ARN']
 
         def handler(event, context):
             cloudwatch_client = boto3.client('cloudwatch')
@@ -807,7 +845,7 @@ Resources:
                     }
                 },
                 NotificationChannel={
-                    "SNSTopicArn": f"{AP_WAIT_FOR_TEXTRACT_ARN}",
+                    "SNSTopicArn": AP_WAIT_FOR_TEXTRACT_ARN,
                     "RoleArn": "arn:aws:iam::570685116845:role/textract-sns-publish"
                 }
             )
@@ -815,7 +853,6 @@ Resources:
             return {
                 "job_Id": response['JobId']
             }
-
 
 
   APAlertsQueue:
@@ -855,6 +892,8 @@ Resources:
         - '-'
         - - !Ref AWS::StackName
           - APAlertsTopic
+
+
 
 
   AddToWorkDocsNonPDFFolders:
