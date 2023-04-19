@@ -775,7 +775,7 @@ Resources:
       CodeUri: inline
       Runtime: python3.9
       InlineCode: |
-        imoprt os
+        import os
         import boto3
 
         AP_WAIT_FOR_TEXTRACT_ARN = json.loads(os.environ['SNS_TOPIC_ARN'])
