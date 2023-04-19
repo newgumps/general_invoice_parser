@@ -695,7 +695,10 @@ Resources:
       CodeUri: inline
       Runtime: python3.9
       InlineCode: |
+        import os
         import boto3
+
+        AP_WAIT_FOR_TEXTRACT_ARN = json.loads(os.environ['SNS_TOPIC_ARN'])
 
         def handler(event, context):
             cloudwatch_client = boto3.client('cloudwatch')
@@ -724,7 +727,7 @@ Resources:
                     }
                 },
                 NotificationChannel={
-                    "SNSTopicArn": "arn:aws:sns:us-east-1:570685116845:APWaitForTextractTopic",
+                    "SNSTopicArn": f"{AP_WAIT_FOR_TEXTRACT_ARN}",
                     "RoleArn": "arn:aws:iam::570685116845:role/textract-sns-publish"
                 }
             )
