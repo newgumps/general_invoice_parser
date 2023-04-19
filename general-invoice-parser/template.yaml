@@ -775,7 +775,10 @@ Resources:
       CodeUri: inline
       Runtime: python3.9
       InlineCode: |
+        imoprt os
         import boto3
+
+        AP_WAIT_FOR_TEXTRACT_ARN = json.loads(os.environ['SNS_TOPIC_ARN'])
 
         def handler(event, context):
             cloudwatch_client = boto3.client('cloudwatch')
@@ -804,7 +807,7 @@ Resources:
                     }
                 },
                 NotificationChannel={
-                    "SNSTopicArn": "arn:aws:sns:us-east-1:570685116845:APWaitForTextractTopic",
+                    "SNSTopicArn": f"{AP_WAIT_FOR_TEXTRACT_ARN}",
                     "RoleArn": "arn:aws:iam::570685116845:role/textract-sns-publish"
                 }
             )
@@ -815,27 +818,43 @@ Resources:
 
 
 
-
   APAlertsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: APAlertsQueueTest
+      QueueName: 
+        !Join
+        - '-'
+        - - !Ref AWS::StackName
+          - 'APAlertsQueue'
+
 
   APWaitTextractsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: APWaitTextractsQueueTest
+      QueueName: 
+        !Join
+        - '-'
+        - - !Ref AWS::StackName
+          - APWaitTextractsQueue
 
   APWaitForTextractTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: APWaitForTextractTopicTest
+      TopicName: 
+        !Join
+        - '-'
+        - - !Ref AWS::StackName
+          - APWaitForTextractTopic
 
 
   APAlertsTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: APAlertsTopicTest
+      TopicName: 
+        !Join
+        - '-'
+        - - !Ref AWS::StackName
+          - APAlertsTopic
 
 
   AddToWorkDocsNonPDFFolders:
