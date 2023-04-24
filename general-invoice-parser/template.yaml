@@ -18,7 +18,7 @@ Parameters:
     Default: winward-invoice-pdf-to-csv-upload-to-ns/key-secrets
   WorkDocsAccountCredentials:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /workdocs/accounts/credentials
+    Default: /workdocs/accounts/credentials/preprod
   NSFileCabinetIdPDFUploadFolder:
     Type: String
     Default: '838'
@@ -45,7 +45,7 @@ Parameters:
 
   APStateMachine:
     Type: String
-    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-inbox-automation-text
+    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-inbox-automation-preprod
 Resources:
   RoleForStateMachine:
     Type: AWS::IAM::Role
@@ -169,7 +169,7 @@ Resources:
         - SNSCrudPolicy:
             TopicName: !GetAtt SavedInS3Notification.TopicName
         - StepFunctionsExecutionPolicy:
-            StateMachineName: ap-inbox-automation-text
+            StateMachineName: ap-inbox-automation-preprod
 
       Events:
         SNSEvent:
@@ -540,7 +540,7 @@ Resources:
                   return {
                       "vendors_db_id": None,
                       "workdocs_folder_name": "Unmatched Vendors",
-                      "workdocs_folder_id": 'b206124fa331f849b1cfc608875092c2664a3300dd0a36acf211ce7388074ca1',
+                      "workdocs_folder_id": 'b1d40a9113da445fdde1649196bd100a416f3ce86ae46aeec23d4f3e792698d4',
                       "manual_process": None,
                       "exclude": None,
                       "alt_names": None,
@@ -928,7 +928,7 @@ Resources:
         parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
         accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
         endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
-        parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
+        parent_folder_id = '71614127e89d6f464420978c706e1a5ba55921a4b559af711a9ce3c7ec3bdaed'
 
         def handler(event, context):
             session = boto3.Session()
