@@ -45,7 +45,7 @@ Parameters:
 
   APStateMachine:
     Type: String
-    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-inbox-automation-preprod
+    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-inbox-automation-production
 Resources:
   RoleForStateMachine:
     Type: AWS::IAM::Role
@@ -169,8 +169,8 @@ Resources:
         - SNSCrudPolicy:
             TopicName: !GetAtt SavedInS3Notification.TopicName
         - StepFunctionsExecutionPolicy:
-            StateMachineName: ap-inbox-automation-preprod
-
+            StateMachineName: ap-inbox-automation-production
+            
       Events:
         SNSEvent:
           Type: SNS
@@ -928,7 +928,7 @@ Resources:
         parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
         accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
         endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
-        parent_folder_id = '71614127e89d6f464420978c706e1a5ba55921a4b559af711a9ce3c7ec3bdaed'
+        parent_folder_id = '71614127e89d6f464420978c706e1a5ba55921a4b559af711a9ce3c7ec3bdaed`'
 
         def handler(event, context):
             session = boto3.Session()
