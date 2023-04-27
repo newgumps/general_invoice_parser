@@ -12,7 +12,7 @@ Parameters:
     Default: winward-invoice-pdf-to-csv-upload-to-ns/key-secrets
   WorkDocsAccountCredentials:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /workdocs/accounts/credentials
+    Default: /workdocs/accounts/credentials/preprod
   NSFileCabinetIdPDFUploadFolder:
     Type: String
     Default: '838'
@@ -39,8 +39,36 @@ Parameters:
 
   APStateMachine:
     Type: String
-    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-automation
+    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-inbox-automation-production
 Resources:
+  RoleForStateMachine:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Join [ '-', [ !Ref 'AWS::StackName', 'StateMachinePolicy' ] ]
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:*
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sqs:*
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource: '*'
+
 
   ReceivedEmailStorage:
     Type: 'AWS::S3::Bucket'
@@ -135,8 +163,13 @@ Resources:
         - SNSCrudPolicy:
             TopicName: !GetAtt SavedInS3Notification.TopicName
         - StepFunctionsExecutionPolicy:
-            StateMachineName: ap-automation
-
+            StateMachineName: ap-inbox-automation-production
+            
+      Events:
+        SNSEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref SavedInS3Notification
       Environment:
         Variables: 
           STATE_MACHINE_ARN: !Ref APStateMachine
@@ -432,7 +465,7 @@ Resources:
                   return {
                       "vendors_db_id": None,
                       "workdocs_folder_name": "Unmatched Vendors",
-                      "workdocs_folder_id": 'b206124fa331f849b1cfc608875092c2664a3300dd0a36acf211ce7388074ca1',
+                      "workdocs_folder_id": 'b1d40a9113da445fdde1649196bd100a416f3ce86ae46aeec23d4f3e792698d4',
                       "manual_process": None,
                       "exclude": None,
                       "alt_names": None,
@@ -519,13 +552,22 @@ Resources:
       Handler: index.handler
       CodeUri: inline
       Runtime: python3.9
+      Timeout: 30
       Policies:
         - SNSCrudPolicy:
             TopicName: !Ref APWaitForTextractTopic
         - SQSPollerPolicy:
-            QueueName: !Ref APWaitTextractsQueue
-        - StepFunctionsExecutionPolicy:
-            StateMachineName: ap-automation
+            QueueName: !GetAtt APWaitTextractsQueue.QueueName
+        - {
+              "Version": "2012-10-17",
+              "Statement": [
+                  {
+                      "Effect": "Allow",
+                      "Action": "states:*",
+                      "Resource": "*"
+                  }
+              ]
+          }
       Environment:
         Variables:
           SQS_URL: !Ref APWaitTextractsQueue
@@ -677,6 +719,7 @@ Resources:
                 'body': 'Hello from the zip archive'
             }
 
+
   ProcessTextract:
     # Note: SNS Arn and Roles may need update. ie.Notification Channel
     Type: AWS::Serverless::Function
@@ -736,6 +779,9 @@ Resources:
                 "job_Id": response['JobId']
             }
 
+
+
+
   APAlertsQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -775,6 +821,8 @@ Resources:
           - APAlertsTopic
 
 
+
+
   AddToWorkDocsNonPDFFolders:
     # make sure parent folders id correspond to the correct folder in workdocs
     Type: AWS::Serverless::Function
@@ -807,7 +855,7 @@ Resources:
         parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
         accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
         endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
-        parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
+        parent_folder_id = '71614127e89d6f464420978c706e1a5ba55921a4b559af711a9ce3c7ec3bdaed`'
 
         def handler(event, context):
             session = boto3.Session()
@@ -978,7 +1026,8 @@ Resources:
       CodeUri: inline
       Runtime: python3.9
       Timeout: 9
-
+      Policies:
+        - CloudWatchPutMetricPolicy: {}
       InlineCode: |
         import boto3
         def handler(event, context):
@@ -1265,6 +1314,11 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Timeout: 60
+      Policies: 
+        - S3CrudPolicy:
+            BucketName: !Ref PDFPagesStorage
+        - S3CrudPolicy:
+            BucketName: !Ref AttachmentsStorage
       PackageType: Image
       Architectures:
         - arm64

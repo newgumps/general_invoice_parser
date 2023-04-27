@@ -1,6 +1,17 @@
 import json
 import os
 import boto3
+from datetime import datetime
+
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+import json
+
+
 
 
 def lambda_handler(event, context):
@@ -43,6 +54,6 @@ def lambda_handler(event, context):
     stepfunctions = boto3.client('stepfunctions')
     response = stepfunctions.start_execution(
         stateMachineArn= STATE_MACHINE_ARN,
-        input= json.dumps(event),
+        input= json.dumps(event, cls=DateTimeEncoder),
         )   
     return response
