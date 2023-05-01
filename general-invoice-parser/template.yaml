@@ -10,7 +10,7 @@ Parameters:
   NSSecrets:
     Type: String
     Default: winward-invoice-pdf-to-csv-upload-to-ns/key-secrets
-  WorkDocsAccountCredentials:
+  WorkDocsAccountCredential:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /workdocs/accounts/credentials
   NSFileCabinetIdPDFUploadFolder:
@@ -296,19 +296,19 @@ Resources:
           - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
         Environment:
           Variables:
-            WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+            WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
         InlineCode: |
           import requests
           import boto3
           import os
           import json
           # Get Credentials
-          WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+          WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-          SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-          ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-          accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-          endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+          SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+          ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+          accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+          endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
 
           def query_graphql_ap_inbox_db(accessToken, endpoint, query):
               # establish a session with requests session
@@ -448,7 +448,7 @@ Resources:
       Timeout: 30
       Environment:
         Variables:
-          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
       InlineCode: |
@@ -456,15 +456,13 @@ Resources:
         import requests
         import json
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
-        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
-
-
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIAL.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
         def handler(event, context):
             session = boto3.Session()
             session_workdoc_acc = boto3.Session(
@@ -591,7 +589,7 @@ Resources:
         - TextractPolicy: {}
       Environment:
         Variables:
-          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
       InlineCode: |
@@ -613,13 +611,13 @@ Resources:
             )
             return response.json()
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
-        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIAL.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
     
         def handler(event, context):
             JOBID = event['TextractResults']['textract_output']
@@ -790,7 +788,7 @@ Resources:
         - CloudWatchPutMetricPolicy: {}
       Environment:
         Variables:
-          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
       InlineCode: |
@@ -800,13 +798,13 @@ Resources:
         import requests
         import os
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
-        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIAL.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
         parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
 
         def handler(event, context):
@@ -1061,20 +1059,20 @@ Resources:
           - CloudWatchPutMetricPolicy: {}
       Environment:
         Variables:
-          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       InlineCode: |
         import requests
         import boto3
         import os
         import json
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
-        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIAL.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
         parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
  
         def query_graphql_ap_inbox_db(accessToken, endpoint, query):
@@ -1154,19 +1152,19 @@ Resources:
           - CloudWatchPutMetricPolicy: {}
       Environment:
         Variables:
-          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       InlineCode: |
         import requests
         import boto3
         import json
         import os
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
         parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
  
         def handler(event, context):
