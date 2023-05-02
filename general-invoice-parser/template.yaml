@@ -12,7 +12,7 @@ Parameters:
     Default: winward-invoice-pdf-to-csv-upload-to-ns/key-secrets
   WorkDocsAccountCredential:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /workdocs/accounts/credentials/preprod
+    Default: /workdocs/accounts/credentials/dev
   NSFileCabinetIdPDFUploadFolder:
     Type: String
     Default: '838'
@@ -22,24 +22,19 @@ Parameters:
   NSSandboxProductionMode:
     Type: String
     Default: 'PRODUCTION'
+
   GumpsLoggingDDB:
     Type: String
     Default: GumpsStacksLog
-  PreProcessingBucket:
-    Type: String
-    Default: preprocessing-bucket-to-be-parsed
-
-  AttachmentsDDBStreams:
-    Type: String
-    Default: arn:aws:dynamodb:us-east-1:570685116845:table/Attachment-iumxb4tvivfkpokn5l7ot2wd64-staging/stream/2022-12-14T17:42:52.072
-
-  PagesDDBStreams:
-    Type: String
-    Default: arn:aws:dynamodb:us-east-1:570685116845:table/Page-iumxb4tvivfkpokn5l7ot2wd64-staging/stream/2022-12-14T17:42:51.302
 
   APStateMachine:
     Type: String
-    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-inbox-automation-preprod
+    Default: arn:aws:states:us-east-1:570685116845:stateMachine:ap-inbox-dev
+
+  APStateMachineName:
+    Type: String
+    Default: ap-inbox-dev
+
 Resources:
   RoleForStateMachine:
     Type: AWS::IAM::Role
@@ -62,13 +57,20 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action:
+                  - "states:StartExecution"
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - sqs:*
                 Resource: '*'
               - Effect: Allow
                 Action:
                   - s3:*
                 Resource: '*'
-
+              - Effect: Allow
+                Action: 
+                  - cloudwatch:PutMetricData
+                Resource: "*"
 
   ReceivedEmailStorage:
     Type: 'AWS::S3::Bucket'
@@ -163,7 +165,7 @@ Resources:
         - SNSCrudPolicy:
             TopicName: !GetAtt SavedInS3Notification.TopicName
         - StepFunctionsExecutionPolicy:
-            StateMachineName: ap-inbox-automation-preprod
+            StateMachineName: !Ref APStateMachineName
 
       Events:
         SNSEvent:
@@ -211,7 +213,7 @@ Resources:
 
     Metadata:
       Dockerfile: Dockerfile
-      DockerContext: ./EmailToPdf
+      DockerContext: ./extract_pdf_attachments
       DockerTag: python3.8-v1
 
   ErrorStorageBucket:
@@ -1323,34 +1325,6 @@ Resources:
       DockerContext: ./split_pdf_by_groups
       DockerTag: python3.8-v1
         
-  ExtractInvoiceFromPagesFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Policies: 
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt  CSVCompilerQueue.QueueName
-        - S3CrudPolicy:
-            BucketName: !Ref PDFPagesStorage
-        - S3CrudPolicy:
-            BucketName: !Ref AttachmentsStorage
-      Events:
-        Stream:
-          Type: DynamoDB
-          Properties:
-            Stream: !Ref PagesDDBStreams
-            BatchSize: 1
-            StartingPosition: LATEST
-      Timeout: 30
-      PackageType: Image
-      Architectures:
-        - arm64
-      Environment:
-        Variables:
-          SQS_QUEUE_URL: !Ref CSVCompilerQueue
-    Metadata:
-      Dockerfile: Dockerfile
-      DockerContext: ./extract_invoice_from_pages
-      DockerTag: python3.8-v1
 
   CSVCompilerQueue:
     Type: AWS::SQS::Queue
