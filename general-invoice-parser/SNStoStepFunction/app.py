@@ -44,16 +44,14 @@ def lambda_handler(event, context):
 
     #     raise e
     print(event)
-    records = event['Records'][0] 
-    res = json.loads(records['Sns']['Message'])
-    EMAIL_OBJ_KEY = res['receipt']['action']['objectKey']
-
-    BUCKET_NAME = res['receipt']['action']['bucketName']
     STATE_MACHINE_ARN = os.environ['STATE_MACHINE_ARN']
-
     stepfunctions = boto3.client('stepfunctions')
     response = stepfunctions.start_execution(
         stateMachineArn= STATE_MACHINE_ARN,
         input= json.dumps(event, cls=DateTimeEncoder),
         )   
-    return response
+    print(response)
+    return {
+        "statusCode": 200,
+        
+    }

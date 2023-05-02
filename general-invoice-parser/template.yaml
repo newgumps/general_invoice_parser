@@ -10,9 +10,9 @@ Parameters:
   NSSecrets:
     Type: String
     Default: winward-invoice-pdf-to-csv-upload-to-ns/key-secrets
-  WorkDocsAccountCredentials:
+  WorkDocsAccountCredential:
     Type: AWS::SSM::Parameter::Value<String>
-    Default: /workdocs/accounts/credentials/preprod
+    Default: /workdocs/accounts/credentials/dev
   NSFileCabinetIdPDFUploadFolder:
     Type: String
     Default: '838'
@@ -22,20 +22,14 @@ Parameters:
   NSSandboxProductionMode:
     Type: String
     Default: 'PRODUCTION'
+
   GumpsLoggingDDB:
     Type: String
     Default: GumpsStacksLog
-  PreProcessingBucket:
-    Type: String
-    Default: preprocessing-bucket-to-be-parsed
 
-  AttachmentsDDBStreams:
+  APStateMachineName:
     Type: String
-    Default: arn:aws:dynamodb:us-east-1:570685116845:table/Attachment-iumxb4tvivfkpokn5l7ot2wd64-staging/stream/2022-12-14T17:42:52.072
-
-  PagesDDBStreams:
-    Type: String
-    Default: arn:aws:dynamodb:us-east-1:570685116845:table/Page-iumxb4tvivfkpokn5l7ot2wd64-staging/stream/2022-12-14T17:42:51.302
+    Default: ap-inbox-dev
 
   APStateMachine:
     Type: String
@@ -62,13 +56,20 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action:
+                  - "states:StartExecution"
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - sqs:*
                 Resource: '*'
               - Effect: Allow
                 Action:
                   - s3:*
                 Resource: '*'
-
+              - Effect: Allow
+                Action: 
+                  - cloudwatch:PutMetricData
+                Resource: "*"
 
   ReceivedEmailStorage:
     Type: 'AWS::S3::Bucket'
@@ -163,8 +164,8 @@ Resources:
         - SNSCrudPolicy:
             TopicName: !GetAtt SavedInS3Notification.TopicName
         - StepFunctionsExecutionPolicy:
-            StateMachineName: ap-inbox-automation-production
-            
+            StateMachineName: !Ref APStateMachineName
+
       Events:
         SNSEvent:
           Type: SNS
@@ -211,7 +212,7 @@ Resources:
 
     Metadata:
       Dockerfile: Dockerfile
-      DockerContext: ./EmailToPdf
+      DockerContext: ./extract_pdf_attachments
       DockerTag: python3.8-v1
 
   ErrorStorageBucket:
@@ -329,19 +330,19 @@ Resources:
           - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
         Environment:
           Variables:
-            WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+            WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
         InlineCode: |
           import requests
           import boto3
           import os
           import json
           # Get Credentials
-          WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+          WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-          SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-          ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-          accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-          endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+          SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+          ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+          accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+          endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
 
           def query_graphql_ap_inbox_db(accessToken, endpoint, query):
               # establish a session with requests session
@@ -481,7 +482,7 @@ Resources:
       Timeout: 30
       Environment:
         Variables:
-          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
       InlineCode: |
@@ -489,15 +490,13 @@ Resources:
         import requests
         import json
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
-        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
-
-
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIAL.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
         def handler(event, context):
             session = boto3.Session()
             session_workdoc_acc = boto3.Session(
@@ -633,7 +632,7 @@ Resources:
         - TextractPolicy: {}
       Environment:
         Variables:
-          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
       InlineCode: |
@@ -655,13 +654,13 @@ Resources:
             )
             return response.json()
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
-        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIAL.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
     
         def handler(event, context):
             JOBID = event['TextractResults']['textract_output']
@@ -780,8 +779,6 @@ Resources:
             }
 
 
-
-
   APAlertsQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -838,7 +835,7 @@ Resources:
         - CloudWatchPutMetricPolicy: {}
       Environment:
         Variables:
-          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       Layers:
         - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-requests:10
       InlineCode: |
@@ -848,7 +845,7 @@ Resources:
         import requests
         import os
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
         SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
         ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
@@ -1110,20 +1107,20 @@ Resources:
           - CloudWatchPutMetricPolicy: {}
       Environment:
         Variables:
-          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       InlineCode: |
         import requests
         import boto3
         import os
         import json
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
-        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIAL.get('parent_folder_id')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
         parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
  
         def query_graphql_ap_inbox_db(accessToken, endpoint, query):
@@ -1203,19 +1200,19 @@ Resources:
           - CloudWatchPutMetricPolicy: {}
       Environment:
         Variables:
-          WORKDOCS_ACCOUNT_CREDENTIALS: !Ref WorkDocsAccountCredentials
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       InlineCode: |
         import requests
         import boto3
         import json
         import os
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIALS'])
+        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
-        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
-        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
-        accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
-        endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
+        SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+        ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+        accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+        endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
         parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
  
         def handler(event, context):
@@ -1327,34 +1324,6 @@ Resources:
       DockerContext: ./split_pdf_by_groups
       DockerTag: python3.8-v1
         
-  ExtractInvoiceFromPagesFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Policies: 
-        - SQSSendMessagePolicy:
-            QueueName: !GetAtt  CSVCompilerQueue.QueueName
-        - S3CrudPolicy:
-            BucketName: !Ref PDFPagesStorage
-        - S3CrudPolicy:
-            BucketName: !Ref AttachmentsStorage
-      Events:
-        Stream:
-          Type: DynamoDB
-          Properties:
-            Stream: !Ref PagesDDBStreams
-            BatchSize: 1
-            StartingPosition: LATEST
-      Timeout: 30
-      PackageType: Image
-      Architectures:
-        - arm64
-      Environment:
-        Variables:
-          SQS_QUEUE_URL: !Ref CSVCompilerQueue
-    Metadata:
-      Dockerfile: Dockerfile
-      DockerContext: ./extract_invoice_from_pages
-      DockerTag: python3.8-v1
 
   CSVCompilerQueue:
     Type: AWS::SQS::Queue
