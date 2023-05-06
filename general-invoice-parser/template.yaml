@@ -187,24 +187,56 @@ Resources:
       Architectures:
         - "arm64"
       Environment:
-        Variables: 
+        Variables:
           BUCKET : !Ref ReceivedEmailStorage
           SAVE_PDF_PREFIX: Received
           ERROR_NOTIFICATION_ARN: !Ref ErrorNotificationSNS
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
+          ATTACHMENTS_BUCKET: !Ref AttachmentsStorage
+
       Events:
         SNSEvent:
           Type: SNS
           Properties:
             Topic: !Ref SavedInS3Notification
       Policies: 
-
+        - S3CrudPolicy:
+            BucketName: !Ref AttachmentsStorage
         - SNSCrudPolicy:
             TopicName: !GetAtt SavedInS3Notification.TopicName
         - S3CrudPolicy:
             BucketName: !Ref ReceivedEmailStorage
         - SNSCrudPolicy:
             TopicName: !GetAtt ErrorNotificationSNS.TopicName
+        - {
 
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "cloudwatch:PutMetricData"
+              ],
+              "Resource": "*"
+            }
+          ]
+          
+            }     
+        - {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                            "Sid": "VisualEditor0",
+                            "Effect": "Allow",
+                            "Action": [
+                                "ssm:DescribeParameters",
+                                "ssm:GetParametersByPath",
+                                "ssm:GetParameters",
+                                "ssm:GetParameter"
+                            ],
+                            "Resource": "*"
+                        }
+                    ]
+            }
       EventInvokeConfig:
         DestinationConfig:
           OnFailure:
@@ -269,8 +301,7 @@ Resources:
             BucketName: !Ref ReceivedEmailStorage
         - S3CrudPolicy:
             BucketName: !Ref AttachmentsStorage
-        - DynamoDBCrudPolicy:
-            TableName: "general-invoice-data"
+
         - {
 
           "Statement": [
@@ -304,6 +335,7 @@ Resources:
       Environment:
         Variables:
           ATTACHMENTS_BUCKET: !Ref AttachmentsStorage
+          WORKDOCS_ACCOUNT_CREDENTIAL: !Ref WorkDocsAccountCredential
       PackageType: Image
       Architectures:
         - arm64
@@ -466,7 +498,7 @@ Resources:
                   return {
                       "vendors_db_id": None,
                       "workdocs_folder_name": "Unmatched Vendors",
-                      "workdocs_folder_id": 'b1d40a9113da445fdde1649196bd100a416f3ce86ae46aeec23d4f3e792698d4',
+                      "workdocs_folder_id": 'f669355e7288b5d318b8f5f0b87707e4a70c024282bcf758e08db1da912e0a05',
                       "manual_process": None,
                       "exclude": None,
                       "alt_names": None,
@@ -494,7 +526,7 @@ Resources:
 
         SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
         ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
-        parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIAL.get('parent_folder_id')
+        parent_folder_id = 'e0b782bd4238b476f381a8fd09491d5a2432e930a0313436c01b11bd005101f3 '
         accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
         endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
         def handler(event, context):
@@ -845,14 +877,14 @@ Resources:
         import requests
         import os
         # Get Credentials
-        WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
+        WORKDOCS_ACCOUNT_CREDENTIALS = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
         SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('SECRET_KEY')
         ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIALS.get('ACCESS_KEY')
         parent_folder_id = WORKDOCS_ACCOUNT_CREDENTIALS.get('parent_folder_id')
         accessToken = WORKDOCS_ACCOUNT_CREDENTIALS.get('accessToken')
         endpoint = WORKDOCS_ACCOUNT_CREDENTIALS.get('endpoint')
-        parent_folder_id = '71614127e89d6f464420978c706e1a5ba55921a4b559af711a9ce3c7ec3bdaed`'
+        parent_folder_id = '46ededda8c62d46742651b228ca9cf38d8890a066011c6c328fd13e52d24b844'
 
         def handler(event, context):
             session = boto3.Session()
@@ -1213,7 +1245,7 @@ Resources:
         ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
         accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
         endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
-        parent_folder_id = '87afa1936584edd9019217fd4c1242ac79caf8919158ebdf1dd1a73885f2881b'
+        parent_folder_id = '81524e3f1939308697860fa97638399d31afbd3bcc78ecbfa81e23767565c49d'
  
         def handler(event, context):
             session = boto3.Session()

@@ -8,8 +8,13 @@ import datetime
 import re
 import uuid
 
-accessToken = "da2-kar2jm52tja5tcggis7sapyu7a"
-endpoint = f"https://shu6fh2efbfj3hq4la4addeujm.appsync-api.us-east-1.amazonaws.com/graphql"
+# Get Credentials
+WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
+
+SECRET_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('SECRET_KEY')
+ACCESS_KEY = WORKDOCS_ACCOUNT_CREDENTIAL.get('ACCESS_KEY')
+accessToken = WORKDOCS_ACCOUNT_CREDENTIAL.get('accessToken')
+endpoint = WORKDOCS_ACCOUNT_CREDENTIAL.get('endpoint')
 
 def query_graphql_ap_inbox_db(accessToken, endpoint, query):
     # establish a session with requests session
