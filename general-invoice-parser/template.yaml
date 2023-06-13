@@ -5,6 +5,10 @@ Description: >
 
   Sample SAM Template for General Invoice
 
+Globals:
+  Function:
+    Timeout: 180
+
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Parameters:
   NSSecrets:
@@ -559,6 +563,7 @@ Resources:
                 VersionId=workdocs_response['Metadata']['LatestVersionMetadata']['Id'],
                 VersionStatus='ACTIVE'
             )     
+  
             cloudwatch_client = boto3.client('cloudwatch')
 
             cloudwatch_client.put_metric_data(
@@ -1305,6 +1310,14 @@ Resources:
                 DocumentId=workdocs_response['Metadata']['Id'],
                 VersionId=workdocs_response['Metadata']['LatestVersionMetadata']['Id'],
                 VersionStatus='ACTIVE'
+            )
+            PAGE_ID = event['PAGE_ID']
+            response = workdocs_client.create_custom_metadata(
+                ResourceId=workdocs_response['Metadata']['Id'],
+                VersionId=workdocs_response['Metadata']['LatestVersionMetadata']['Id'],
+                CustomMetadata={
+                    'string': PAGE_ID
+                }
             )
 
             return {
