@@ -1,7 +1,25 @@
 import json
 import PyPDF2
 import boto3
+import re
 
+def make_filename_friendly(s):
+    # Remove any leading or trailing whitespaces
+    s = s.strip()
+    
+    # Replace characters not allowed in filenames with underscores
+    s = re.sub(r'[<>:"/\\|?*]', '_', s)
+    
+    # Remove consecutive underscores
+    s = re.sub(r'[_]+', '_', s)
+    
+    # Remove any trailing periods
+    s = re.sub(r'\.+$', '', s)
+    
+    # Truncate the filename to a maximum length of 255 characters
+    s = s[:255]
+    
+    return s
 def lambda_handler(event, context):
     """Sample pure Lambda function
 
@@ -48,14 +66,15 @@ def lambda_handler(event, context):
                 
                 output_filename = (rename_files_parts[group_index]['INVOICE_DATE'] + "_" ) + rename_files_parts[group_index]['INVOICE_RECEIPT_ID'].replace('/','') +  '_' +rename_files_parts[group_index]['PO_NUMBER'] + '.pdf'
                 output_filename = output_filename.replace(' ', '')
+                output_filename = make_filename_friendly(output_filename)
                 with open("/tmp/"+output_filename, 'wb') as output_pdf:
                     pdf_writer.write(output_pdf)
                 with open("/tmp/"+output_filename, 'rb') as output_pdf:
                     s3.upload_fileobj(output_pdf, BUCKET_NAME, output_filename)
                 list_of_files_upload_to_s3.append({'BUCKET_NAME': BUCKET_NAME, 
                                                     'KEY': output_filename,
-                                                    'PO_NUMBER': rename_files_parts[group_index]['PO_NUMBER'],
-                                                    'INVOICE_RECEIPT_ID': rename_files_parts[group_index]['INVOICE_RECEIPT_ID'],
+                                                    'PO_NUMBER': make_filename_friendly(rename_files_parts[group_index]['PO_NUMBER']),
+                                                    'INVOICE_RECEIPT_ID': make_filename_friendly(rename_files_parts[group_index]['INVOICE_RECEIPT_ID']),
                                                     'PAGE_ID': rename_files_parts[group_index]['PAGE_ID'],})
                 print(group_index)
                 print(f"Created: {output_filename}")

@@ -1314,9 +1314,9 @@ Resources:
             PAGE_ID = event['PAGE_ID']
             response = workdocs_client.create_custom_metadata(
                 ResourceId=workdocs_response['Metadata']['Id'],
-                VersionId=workdocs_response['Metadata']['LatestVersionMetadata']['Id'],
                 CustomMetadata={
-                    'string': PAGE_ID
+                    'bucket': event['BUCKET_NAME'],
+                    'key': event['KEY'],
                 }
             )
 
