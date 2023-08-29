@@ -394,120 +394,76 @@ Resources:
               )
               return response.json()
               
-          def handler(event, context):
-              # Check for match with vendor names domains
-              email_domain = event['extract_pdf_attachments']['OriginalSender']
-              graphql_query = f"""
-                  query MyQuery {{
-                  listVendors(limit: 1000, filter: {{known_email_domain: {{contains: "{email_domain}"}}}}) {{
-              
-              
-                      items {{
-                      id
-                      workdocs_folder_id
-                      workdocs_folder_name
-                      manual_process
-                      exclude
-                      alt_names
-                      }}
-                  }}
-                  }}
-                  """
-              response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
-              if response['data']['listVendors']['items'] != []:
-                  return {
-                      "vendors_db_id": (response['data']['listVendors']['items'][0]['id'] or None),
-                      "workdocs_folder_name": (response['data']['listVendors']['items'][0]['workdocs_folder_name'] or None),
-                      "workdocs_folder_id": (response['data']['listVendors']['items'][0]['workdocs_folder_id'] or None),
-                      "manual_process": (response['data']['listVendors']['items'][0]['manual_process'] or None),
-                      "exclude": (response['data']['listVendors']['items'][0]['exclude'] or None),
-                      "alt_names": (response['data']['listVendors']['items'][0]['alt_names'] or None),
-              
-                  }
-              else:
-                  pass
-              # Else try to match on vendor names
-              vendors_names = event['PageCompile']['PageCompile']['Vendor Names']
-              if vendors_names == None:
-                  vendors_names = "No Vendor"
-              def convert_to_dynamodb_friendly(string):
-                  """Converts any string to a DynamoDB-friendly string"""
-                  return string.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t').replace('\'', '\\\'').replace('\"', '\\"')
-              
-              
-              vendors_name_modifify = [convert_to_dynamodb_friendly(vendor) for vendor in vendors_names]
-              
-              for vendor_names in vendors_name_modifify:
-                  graphql_query = f"""
-                      query MyQuery {{
-                      listVendors(limit: 1000, filter: {{alt_names: {{contains: "{vendor_names}"}}}}) {{
-              
-              
-                          items {{
-                          id
-                          workdocs_folder_id
-                          workdocs_folder_name
-                          manual_process
-                          exclude
-                          alt_names
-                          }}
-                      }}
-                      }}
-              
-              
-              
-              
-                      """ 
+          def convert_to_dynamodb_friendly(string):
+              """Converts any string to a DynamoDB-friendly string"""
+              return string.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t').replace('\'', '\\\'').replace('\"', '\\"')
 
-                  response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
-                  print(response)
-                  if "errors" in response:
-                      graphql_query = f"""
-                          query MyQuery {{
-                          listVendors(limit: 1000, filter: {{alt_names: {{contains: "{vendors_names}"}}}}) {{
-                  
-                      
-                              items {{
+
+          def generate_graphql_query(filter_key, filter_value):
+              """Generate GraphQL query string based on filter key and value."""
+              return f"""
+                  query MyQuery {{
+                      listVendors(limit: 1000, filter: {{{filter_key}: {{contains: "{filter_value}"}}}}) {{
+                          items {{
                               id
                               workdocs_folder_id
                               workdocs_folder_name
                               manual_process
                               exclude
                               alt_names
-                              }}
+                              SenderName
                           }}
-                          }}
-                      
-                      
-                      
-                      
-                          """ 
-                      response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
-                      print(response)
-                  #if response['data']['listVendors']['items'] != []:
-                  #    break
-                  #else:
-                  #    continue
-              try:
-                  return {
-                      "vendors_db_id": (response['data']['listVendors']['items'][0]['id'] or None),
-                      "workdocs_folder_name": (response['data']['listVendors']['items'][0]['workdocs_folder_name'] or None),
-                      "workdocs_folder_id": (response['data']['listVendors']['items'][0]['workdocs_folder_id'] or None),
-                      "manual_process": (response['data']['listVendors']['items'][0]['manual_process'] or None),
-                      "exclude": (response['data']['listVendors']['items'][0]['exclude'] or None),
-                      "alt_names": (response['data']['listVendors']['items'][0]['alt_names'] or None),
-              
-                  }
-              except:
-                  return {
-                      "vendors_db_id": None,
-                      "workdocs_folder_name": "Unmatched Vendors",
-                      "workdocs_folder_id": 'f669355e7288b5d318b8f5f0b87707e4a70c024282bcf758e08db1da912e0a05',
-                      "manual_process": None,
-                      "exclude": None,
-                      "alt_names": None,
-              
-                  }
+                      }}
+                  }}
+              """ 
+          def build_vendor_response(vendor_data):
+              """Build the vendor response dictionary."""
+              return {
+                  "vendors_db_id": vendor_data.get('id', None),
+                  "workdocs_folder_name": vendor_data.get('workdocs_folder_name', None),
+                  "workdocs_folder_id": vendor_data.get('workdocs_folder_id', None),
+                  "manual_process": vendor_data.get('manual_process', None),
+                  "exclude": vendor_data.get('exclude', None),
+                  "alt_names": vendor_data.get('alt_names', None),
+              }
+
+
+          def handler(event, context):
+              # 1. Check for match with OriginalSenderName using SenderName field
+              original_sender_name = event.get('extract_pdf_attachments', {}).get('OriginalSenderName', '')
+              graphql_query = generate_graphql_query('SenderName', original_sender_name)
+              response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
+              if response['data']['listVendors']['items']:
+                  return build_vendor_response(response['data']['listVendors']['items'][0])
+
+              # 2. Check for match with OriginalSender (sender-email)
+              email_domain = event.get('extract_pdf_attachments', {}).get('OriginalSender', '')
+              graphql_query = generate_graphql_query('known_email_domain', email_domain)
+              response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
+              if response['data']['listVendors']['items']:
+                  return build_vendor_response(response['data']['listVendors']['items'][0])
+
+              # 3. If no match found based on OriginalSenderName and OriginalSender, proceed with vendor names matching
+              vendors_names = event.get('PageCompile', {}).get('PageCompile', {}).get('Vendor Names', [])
+              if not vendors_names:
+                  vendors_names = ["No Vendor"]
+
+              for vendor_name in vendors_names:
+                  vendor_name_modified = convert_to_dynamodb_friendly(vendor_name)
+                  graphql_query = generate_graphql_query('alt_names', vendor_name_modified)
+                  response = query_graphql_ap_inbox_db(accessToken, endpoint, graphql_query)
+                  if response['data']['listVendors']['items']:
+                      return build_vendor_response(response['data']['listVendors']['items'][0])
+
+              # If no match found in all checks, return unmatched vendor details
+              return {
+                  "vendors_db_id": None,
+                  "workdocs_folder_name": "Unmatched Vendors",
+                  "workdocs_folder_id": 'f669355e7288b5d318b8f5f0b87707e4a70c024282bcf758e08db1da912e0a05',
+                  "manual_process": None,
+                  "exclude": None,
+                  "alt_names": None,
+              }
 
   AddToWorkDocsErrorsFolders:
     Type: AWS::Serverless::Function
@@ -1349,7 +1305,6 @@ Resources:
                 else:
                     list_of_processed_receipts[idx]['NS_PASS'] = True
             
-            list_of_processed_receipts
             return list_of_processed_receipts
   
   SplitPDFbyGroups:

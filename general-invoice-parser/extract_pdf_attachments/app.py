@@ -8,6 +8,7 @@ import datetime
 import re
 import uuid
 
+# Edit
 # Get Credentials
 WORKDOCS_ACCOUNT_CREDENTIAL = json.loads(os.environ['WORKDOCS_ACCOUNT_CREDENTIAL'])
 
@@ -51,12 +52,15 @@ def lambda_handler(event, context):
     email_body = mail.body
 
     # Use a regex pattern to match the forwarded sender's email address
-    forwarded_sender_pattern = re.compile(r"From: .*<(.+@.+)>")
+    forwarded_sender_pattern = re.compile(r"From: (.*) <(.+@.+)>")
+
     match = forwarded_sender_pattern.search(email_body)
 
     if match:
-        original_sender_email = match.group(1)
+        original_sender_name = match.group(1)  # Extracted sender's name
+        original_sender_email = match.group(2)  # Extracted sender's email
     else:
+        original_sender_name = None
         original_sender_email = None
 
     email_from = mail._from[0]
@@ -80,12 +84,14 @@ def lambda_handler(event, context):
 
     email_query = f"""  
         mutation MyMutation($Sender: AWSEmail = "{email_from[1]}",
+                            $SenderName: String = "{original_sender_name}",  # Add this line
                             $Extracted_Original_Sender: String = "{original_sender_email}",
                             $inbox_date: AWSDate = "{inbox_date}", 
                             $object_ref: AWSJSON = {json.dumps(object_ref)},
                             $process_datetime: AWSDateTime = "{datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')}") {{
         createEmail(input: {{
                             Sender: $Sender,
+                            SenderName: $SenderName,  # Add this line
                             Extracted_Original_Sender: $Extracted_Original_Sender,
                             inbox_date: $inbox_date, 
                             object_ref: $object_ref, 
@@ -182,6 +188,7 @@ def lambda_handler(event, context):
             "UUID": unique_id,
             "Attachments": extensions_original,
             "OriginalSender": original_sender_email,
+            "OriginalSenderName": original_sender_name,
             "email": json.loads(object_ref),
             "attachments": {"AttachmentId":ATTACHMENTS_ID,
                             "BUCKET_NAME": ATTACHMENTS_BUCKET, 

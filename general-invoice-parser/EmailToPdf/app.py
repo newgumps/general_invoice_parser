@@ -9,6 +9,7 @@ from datetime import datetime
 def loggings(Name, Event, Info='Info:'):
     """_summary_: This function is used to log the events in the cloudwatch logs
 
+
     Args:
         Name (_type_): _description_
         Event (_type_): _description_
